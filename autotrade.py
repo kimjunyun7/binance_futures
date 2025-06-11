@@ -756,6 +756,13 @@ Follow this process:
    - Compare the performance of LONG vs SHORT positions
    - Evaluate the effectiveness of your stop-loss and take-profit levels
    - Assess which leverage settings performed best
+   
+   Performance Review Metrics:
+   - Win rate by direction (LONG vs SHORT)
+   - Average profit/loss by leverage range
+   - Stop-out frequency by volatility level
+   - Best/worst performing setups
+   - Time-of-day performance patterns
 
 2. Assess the current market condition across all timeframes:
    - Short-term trend (15m): Recent price action and momentum
@@ -763,7 +770,19 @@ Follow this process:
    - Long-term trend (4h): Overall market bias
    - Volatility across timeframes
    - Key support/resistance levels
+       - Technical indicators to consider:
+          * RSI divergences across timeframes
+          * MACD crossovers and momentum
+          * Volume profile and accumulation/distribution
+          * Moving average confluences (20/50/200)
+          * Bollinger Band squeeze/expansion
    - News sentiment: Analyze recent news article titles for bullish or bearish sentiment
+
+    Decision Weighting:
+        - Technical analysis weight: 70-80% of decision
+        - News sentiment weight: 20-30% of decision
+        - Adjust weights based on news significance (major events vs routine updates)
+
 
 3. Based on your analysis, determine:
    - Direction: Whether to go LONG or SHORT
@@ -777,6 +796,10 @@ Follow this process:
      * q = probability of failure (1 - p)
      * b = win/loss ratio (based on stop loss and take profit distances)
    - Adjust based on historical win rates and profit/loss ratios
+   - Additional safety measures:
+     * Maximum position size cap: 25% of portfolio regardless of Kelly calculation
+     * If losing streak > 3 trades, reduce Kelly fraction to 1/4
+     * Volatility adjustment: Multiply Kelly by (1 - current_volatility/max_volatility)
 
 5. Determine optimal leverage:
    - Based on market volatility across timeframes
