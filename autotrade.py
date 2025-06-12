@@ -48,13 +48,6 @@ serp_api_key = os.getenv("SERP_API_KEY")  # 서프 API 키
 # SQLite 데이터베이스 설정
 DB_FILE = "bitcoin_trading.db"  # 데이터베이스 파일명
 
-# (너무 자주 콜되어 나중에 추가 됌) API 호출 관리를 위한 전역 변수 추가
-last_api_call_time = None  # 마지막 API 호출 시간
-consecutive_no_position_count = 0  # 연속 NO_POSITION 횟수
-failed_entry_count = 0  # 진입 실패 횟수
-last_position_size_multiplier = 1.0  # 포지션 크기 조정 배수 (새로 추가)
-
-
 # ===== 데이터베이스 관련 함수 =====
 def setup_database():
     """
@@ -110,8 +103,6 @@ def setup_database():
     conn.commit()
     conn.close()
     print("데이터베이스 설정 완료")
-
-
 
 def save_ai_analysis(analysis_data, trade_id=None):
     """
@@ -472,162 +463,6 @@ def get_performance_metrics():
     
     return metrics
 
-
-##  (너무 자주 콜되어 나중에 추가 됌)
-def get_api_wait_time():
-    """
-    현재 상황에 따른 API 호출 대기 시간을 계산합니다
-    
-    연속 NO_POSITION이나 진입 실패가 많을수록 대기 시간이 증가합니다.
-    최소 5분에서 최대 30분까지 대기합니다.
-    
-    반환값:
-        int: 대기 시간(초)
-    """
-    global consecutive_no_position_count, failed_entry_count
-    
-    # 기본 대기 시간: 5분
-    base_wait = 300  # 5분
-    
-    # NO_POSITION 연속 횟수에 따른 추가 대기 시간
-    no_position_penalty = min(consecutive_no_position_count * 300, 900)  # 최대 15분 추가
-    
-    # 진입 실패에 따른 추가 대기 시간
-    failed_entry_penalty = min(failed_entry_count * 180, 600)  # 최대 10분 추가
-    
-    # 총 대기 시간 계산 (최대 30분)
-    total_wait = min(base_wait + no_position_penalty + failed_entry_penalty, 1800)
-    
-    return total_wait
-
-def execute_order_with_retry(exchange, symbol, action, amount, leverage, sl_percentage, tp_percentage, 
-                             entry_price, position_size_percentage, max_retries=3):
-    """
-    잔고 부족 시 금액을 줄여가며 주문을 재시도합니다
-    
-    매개변수:
-        exchange: 거래소 객체
-        symbol: 거래 심볼
-        action: 'long' 또는 'short'
-        amount: 초기 주문 수량
-        leverage: 레버리지
-        sl_percentage: 스탑로스 비율
-        tp_percentage: 테이크프로핏 비율
-        entry_price: 진입 가격
-        position_size_percentage: 포지션 크기 비율
-        max_retries: 최대 재시도 횟수
-        
-    반환값:
-        tuple: (성공 여부, 최종 주문 수량, 최종 투자 금액)
-    """
-    global last_position_size_multiplier
-    
-    current_amount = amount
-    current_multiplier = 1.0
-    retry_count = 0
-    
-    while retry_count < max_retries:
-        try:
-            # 현재 잔액 확인
-            balance = exchange.fetch_balance()
-            available_capital = balance['USDT']['free']
-            required_capital = current_amount * entry_price / leverage
-            
-            print(f"\n주문 시도 {retry_count + 1}/{max_retries}")
-            print(f"필요 자본: ${required_capital:.2f} USDT")
-            print(f"가용 자본: ${available_capital:.2f} USDT")
-            
-            if action == "long":
-                # 시장가 매수 주문
-                order = exchange.create_market_buy_order(symbol, current_amount)
-                
-                # 스탑로스/테이크프로핏 가격 계산
-                sl_price = round(entry_price * (1 - sl_percentage), 2)
-                tp_price = round(entry_price * (1 + tp_percentage), 2)
-                
-                # SL/TP 주문 생성
-                exchange.create_order(symbol, 'STOP_MARKET', 'sell', current_amount, None, {'stopPrice': sl_price})
-                exchange.create_order(symbol, 'TAKE_PROFIT_MARKET', 'sell', current_amount, None, {'stopPrice': tp_price})
-                
-            elif action == "short":
-                # 시장가 매도 주문
-                order = exchange.create_market_sell_order(symbol, current_amount)
-                
-                # 스탑로스/테이크프로핏 가격 계산
-                sl_price = round(entry_price * (1 + sl_percentage), 2)
-                tp_price = round(entry_price * (1 - tp_percentage), 2)
-                
-                # SL/TP 주문 생성
-                exchange.create_order(symbol, 'STOP_MARKET', 'buy', current_amount, None, {'stopPrice': sl_price})
-                exchange.create_order(symbol, 'TAKE_PROFIT_MARKET', 'buy', current_amount, None, {'stopPrice': tp_price})
-            
-            # 성공 시 multiplier 저장
-            last_position_size_multiplier = current_multiplier
-            
-            # 최종 투자 금액 계산
-            final_investment = current_amount * entry_price
-            
-            return True, current_amount, final_investment, sl_price, tp_price
-            
-        except Exception as e:
-            error_msg = str(e).lower()
-            
-            # 잔고 부족 에러 확인
-            if "insufficient" in error_msg or "balance" in error_msg or "not enough" in error_msg:
-                retry_count += 1
-                
-                if retry_count < max_retries:
-                    # 주문 금액을 50%로 줄임
-                    current_multiplier *= 0.5
-                    current_amount = math.ceil((amount * current_multiplier) * 1000) / 1000
-                    
-                    # 최소 주문 금액 확인
-                    min_order_value = 10  # 바이낸스 최소 주문 금액 10 USDT
-                    if current_amount * entry_price < min_order_value:
-                        print(f"주문 금액이 최소 금액(${min_order_value})보다 작습니다.")
-                        return False, 0, 0, 0, 0
-                    
-                    print(f"잔고 부족. 주문 금액을 {current_multiplier*100:.0f}%로 줄여서 재시도합니다...")
-                    print(f"새로운 주문 수량: {current_amount} BTC")
-                    time.sleep(2)
-                else:
-                    print("최대 재시도 횟수 초과. 주문 실패.")
-                    return False, 0, 0, 0, 0
-            else:
-                # 다른 에러는 즉시 실패 처리
-                print(f"주문 실행 오류: {e}")
-                return False, 0, 0, 0, 0
-    
-    return False, 0, 0, 0, 0
-
-
-def should_call_api():
-    """
-    API를 호출해야 하는지 결정합니다
-    
-    마지막 API 호출 시간과 대기 시간을 비교하여 결정합니다.
-    
-    반환값:
-        bool: API 호출 여부
-    """
-    global last_api_call_time
-    
-    if last_api_call_time is None:
-        return True
-    
-    current_time = time.time()
-    elapsed_time = current_time - last_api_call_time
-    required_wait_time = get_api_wait_time()
-    
-    if elapsed_time >= required_wait_time:
-        return True
-    else:
-        remaining_time = required_wait_time - elapsed_time
-        print(f"API 호출 대기 중... {int(remaining_time)}초 남음")
-        print(f"(연속 NO_POSITION: {consecutive_no_position_count}회, 진입 실패: {failed_entry_count}회)")
-        return False
-
-
 # ===== 데이터 수집 함수 =====
 def fetch_multi_timeframe_data():
     """
@@ -858,9 +693,6 @@ while True:
             if current_trade:
                 handle_position_closure(current_price, current_trade['action'], current_trade['amount'], current_trade_id)
             
-			 ## (너무 자주 콜되어 나중에 추가 됌)
-                consecutive_no_position_count = 0
-                failed_entry_count = 0
             # 포지션이 없을 경우, 남아있는 미체결 주문 취소
             try:
                 open_orders = exchange.fetch_open_orders(symbol)
@@ -872,11 +704,7 @@ while True:
                     print("No remaining open orders to cancel.")
             except Exception as e:
                 print("Error cancelling orders:", e)
-				##  (너무 자주 콜되어 나중에 추가 됌)
-                # API 호출 여부 확인
-                if not should_call_api():
-                    time.sleep(60)  # 1분 후 다시 확인
-                    continue
+                
             # 잠시 대기 후 시장 분석 시작
             time.sleep(5)
             print("No position. Analyzing market...")
@@ -928,13 +756,6 @@ Follow this process:
    - Compare the performance of LONG vs SHORT positions
    - Evaluate the effectiveness of your stop-loss and take-profit levels
    - Assess which leverage settings performed best
-   
-   Performance Review Metrics:
-   - Win rate by direction (LONG vs SHORT)
-   - Average profit/loss by leverage range
-   - Stop-out frequency by volatility level
-   - Best/worst performing setups
-   - Time-of-day performance patterns
 
 2. Assess the current market condition across all timeframes:
    - Short-term trend (15m): Recent price action and momentum
@@ -942,19 +763,7 @@ Follow this process:
    - Long-term trend (4h): Overall market bias
    - Volatility across timeframes
    - Key support/resistance levels
-       - Technical indicators to consider:
-          * RSI divergences across timeframes
-          * MACD crossovers and momentum
-          * Volume profile and accumulation/distribution
-          * Moving average confluences (20/50/200)
-          * Bollinger Band squeeze/expansion
    - News sentiment: Analyze recent news article titles for bullish or bearish sentiment
-
-    Decision Weighting:
-        - Technical analysis weight: 70-80% of decision
-        - News sentiment weight: 20-30% of decision
-        - Adjust weights based on news significance (major events vs routine updates)
-
 
 3. Based on your analysis, determine:
    - Direction: Whether to go LONG or SHORT
@@ -968,7 +777,6 @@ Follow this process:
      * q = probability of failure (1 - p)
      * b = win/loss ratio (based on stop loss and take profit distances)
    - Adjust based on historical win rates and profit/loss ratios
-  
 
 5. Determine optimal leverage:
    - Based on market volatility across timeframes
@@ -977,12 +785,6 @@ Follow this process:
    - Never exceed what is prudent based on your conviction level
    - Learn from past leverage decisions and their outcomes
    - Be more conservative if recent high-leverage trades resulted in losses
-   - Additional safety measures:
-     * Maximum position size cap: 25% of portfolio regardless of Kelly calculation
-     * If losing streak > 3 trades, reduce Kelly fraction to 1/4
-     * Volatility adjustment: Multiply Kelly by (1 - current_volatility/max_volatility)
-     * Consider minimum order requirements: Ensure position size meets exchange minimums
-     * Apply 95% capital usage limit to prevent insufficient balance errors
 
 6. Set optimal Stop Loss (SL) and Take Profit (TP) levels:
    - Analyze recent price action, support/resistance levels
@@ -1078,17 +880,7 @@ IMPORTANT: Do not format your response as a code block. Do not include ```json, 
                 if action == "no_position":
                     print("현재 시장 상황에서는 포지션을 열지 않는 것이 좋습니다.")
                     print(f"이유: {trading_decision['reasoning']}")
-
-					##  (너무 자주 콜되어 나중에 추가 됌)
-					# NO_POSITION 카운터 증가
-                    consecutive_no_position_count += 1
-                    last_api_call_time = time.time()  # API 호출 시간 기록
-                    
-                    # 다음 API 호출까지 대기 시간 표시
-                    wait_time = get_api_wait_time()
-                    print(f"다음 분석까지 {wait_time//60}분 대기합니다...")
-                    
-                    time.sleep(120)  # 포지션 없을 때 1분 대기
+                    time.sleep(60)  # 포지션 없을 때 1분 대기
                     continue
                     
                 # ===== 9. 투자 금액 계산 =====
@@ -1098,37 +890,15 @@ IMPORTANT: Do not format your response as a code block. Do not include ```json, 
                 
                 # AI 추천 포지션 크기 비율 적용
                 position_size_percentage = trading_decision['recommended_position_size']
-                
-				# 이전에 실패한 적이 있으면 추천 크기에 조정 배수 적용
-                adjusted_position_size = position_size_percentage * last_position_size_multiplier
                 investment_amount = available_capital * position_size_percentage
                 
-                # # 최소 주문 금액 확인 (최소 100 USDT)
-                # if investment_amount < 100:
-                #     investment_amount = 100
-                #     print(f"최소 주문 금액(100 USDT)으로 조정됨")
+                # 최소 주문 금액 확인 (최소 100 USDT)
+                if investment_amount < 100:
+                    investment_amount = 100
+                    print(f"최소 주문 금액(100 USDT)으로 조정됨")
                 
-                # print(f"투자 금액: {investment_amount:.2f} USDT")
-                # 최소 주문 금액 확인 (바이낸스 최소 10 USDT)
-                min_order_value = 10
-                if investment_amount < min_order_value:
-                    if available_capital >= min_order_value:
-                        investment_amount = min_order_value
-                        print(f"최소 주문 금액(${min_order_value})으로 조정됨")
-                    else:
-                        print(f"잔액이 최소 주문 금액(${min_order_value})보다 부족합니다.")
-                        failed_entry_count += 1
-                        last_api_call_time = time.time()
-                        time.sleep(60)
-                        continue
+                print(f"투자 금액: {investment_amount:.2f} USDT")
                 
-                # 안전 마진 적용 (가용 자본의 95%까지만 사용)
-                max_safe_investment = available_capital * 0.95
-                if investment_amount > max_safe_investment:
-                    investment_amount = max_safe_investment
-                    print(f"안전 마진 적용: 투자 금액을 ${investment_amount:.2f}로 조정")
-                
-                print(f"투자 금액: ${investment_amount:.2f} USDT (가용 자본의 {(investment_amount/available_capital)*100:.1f}%)")
                 # ===== 10. 주문 수량 계산 =====
                 # BTC 수량 = 투자금액 / 현재가격, 소수점 3자리까지 반올림
                 amount = math.ceil((investment_amount / current_price) * 1000) / 1000
@@ -1146,196 +916,104 @@ IMPORTANT: Do not format your response as a code block. Do not include ```json, 
                 tp_percentage = trading_decision['take_profit_percentage']
 
                 # ===== 13. 포지션 진입 및 SL/TP 주문 실행 =====
-                # if action == "long":  # 롱 포지션
-                #     # 시장가 매수 주문
-                #     order = exchange.create_market_buy_order(symbol, amount)
-                #     entry_price = current_price
+                if action == "long":  # 롱 포지션
+                    # 시장가 매수 주문
+                    order = exchange.create_market_buy_order(symbol, amount)
+                    entry_price = current_price
                     
-                #     # 스탑로스/테이크프로핏 가격 계산
-                #     sl_price = round(entry_price * (1 - sl_percentage), 2)   # AI 추천 비율만큼 하락
-                #     tp_price = round(entry_price * (1 + tp_percentage), 2)   # AI 추천 비율만큼 상승
+                    # 스탑로스/테이크프로핏 가격 계산
+                    sl_price = round(entry_price * (1 - sl_percentage), 2)   # AI 추천 비율만큼 하락
+                    tp_price = round(entry_price * (1 + tp_percentage), 2)   # AI 추천 비율만큼 상승
                     
-                #     # SL/TP 주문 생성
-                #     exchange.create_order(symbol, 'STOP_MARKET', 'sell', amount, None, {'stopPrice': sl_price})
-                #     exchange.create_order(symbol, 'TAKE_PROFIT_MARKET', 'sell', amount, None, {'stopPrice': tp_price})
+                    # SL/TP 주문 생성
+                    exchange.create_order(symbol, 'STOP_MARKET', 'sell', amount, None, {'stopPrice': sl_price})
+                    exchange.create_order(symbol, 'TAKE_PROFIT_MARKET', 'sell', amount, None, {'stopPrice': tp_price})
                     
-                #     # 거래 데이터 저장
-                #     trade_data = {
-                #         'action': 'long',
-                #         'entry_price': entry_price,
-                #         'amount': amount,
-                #         'leverage': recommended_leverage,
-                #         'sl_price': sl_price,
-                #         'tp_price': tp_price,
-                #         'sl_percentage': sl_percentage,
-                #         'tp_percentage': tp_percentage,
-                #         'position_size_percentage': position_size_percentage,
-                #         'investment_amount': investment_amount
-                #     }
-                #     trade_id = save_trade(trade_data)
+                    # 거래 데이터 저장
+                    trade_data = {
+                        'action': 'long',
+                        'entry_price': entry_price,
+                        'amount': amount,
+                        'leverage': recommended_leverage,
+                        'sl_price': sl_price,
+                        'tp_price': tp_price,
+                        'sl_percentage': sl_percentage,
+                        'tp_percentage': tp_percentage,
+                        'position_size_percentage': position_size_percentage,
+                        'investment_amount': investment_amount
+                    }
+                    trade_id = save_trade(trade_data)
                     
-                #     # AI 분석 결과와 거래 연결
-                #     update_analysis_sql = "UPDATE ai_analysis SET trade_id = ? WHERE id = ?"
-                #     conn = sqlite3.connect(DB_FILE)
-                #     cursor = conn.cursor()
-                #     cursor.execute(update_analysis_sql, (trade_id, analysis_id))
-                #     conn.commit()
-                #     conn.close()
+                    # AI 분석 결과와 거래 연결
+                    update_analysis_sql = "UPDATE ai_analysis SET trade_id = ? WHERE id = ?"
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    cursor.execute(update_analysis_sql, (trade_id, analysis_id))
+                    conn.commit()
+                    conn.close()
                     
-                #     print(f"\n=== LONG Position Opened ===")
-                #     print(f"Entry: ${entry_price:,.2f}")
-                #     print(f"Stop Loss: ${sl_price:,.2f} (-{sl_percentage*100:.2f}%)")
-                #     print(f"Take Profit: ${tp_price:,.2f} (+{tp_percentage*100:.2f}%)")
-                #     print(f"Leverage: {recommended_leverage}x")
-                #     print(f"분석 근거: {trading_decision['reasoning']}")
-                #     print("===========================")
+                    print(f"\n=== LONG Position Opened ===")
+                    print(f"Entry: ${entry_price:,.2f}")
+                    print(f"Stop Loss: ${sl_price:,.2f} (-{sl_percentage*100:.2f}%)")
+                    print(f"Take Profit: ${tp_price:,.2f} (+{tp_percentage*100:.2f}%)")
+                    print(f"Leverage: {recommended_leverage}x")
+                    print(f"분석 근거: {trading_decision['reasoning']}")
+                    print("===========================")
 
-				# 	##  (너무 자주 콜되어 나중에 추가 됌)
-				# 	# 포지션 진입 성공 시 카운터 리셋
-                #     consecutive_no_position_count = 0
-                #     failed_entry_count = 0
-                #     last_api_call_time = time.time()
-
-                # elif action == "short":  # 숏 포지션
-                #     # 시장가 매도 주문
-                #     order = exchange.create_market_sell_order(symbol, amount)
-                #     entry_price = current_price
+                elif action == "short":  # 숏 포지션
+                    # 시장가 매도 주문
+                    order = exchange.create_market_sell_order(symbol, amount)
+                    entry_price = current_price
                     
-                #     # 스탑로스/테이크프로핏 가격 계산
-                #     sl_price = round(entry_price * (1 + sl_percentage), 2)   # AI 추천 비율만큼 상승
-                #     tp_price = round(entry_price * (1 - tp_percentage), 2)   # AI 추천 비율만큼 하락
+                    # 스탑로스/테이크프로핏 가격 계산
+                    sl_price = round(entry_price * (1 + sl_percentage), 2)   # AI 추천 비율만큼 상승
+                    tp_price = round(entry_price * (1 - tp_percentage), 2)   # AI 추천 비율만큼 하락
                     
-                #     # SL/TP 주문 생성
-                #     exchange.create_order(symbol, 'STOP_MARKET', 'buy', amount, None, {'stopPrice': sl_price})
-                #     exchange.create_order(symbol, 'TAKE_PROFIT_MARKET', 'buy', amount, None, {'stopPrice': tp_price})
+                    # SL/TP 주문 생성
+                    exchange.create_order(symbol, 'STOP_MARKET', 'buy', amount, None, {'stopPrice': sl_price})
+                    exchange.create_order(symbol, 'TAKE_PROFIT_MARKET', 'buy', amount, None, {'stopPrice': tp_price})
                     
-                #     # 거래 데이터 저장
-                #     trade_data = {
-                #         'action': 'short',
-                #         'entry_price': entry_price,
-                #         'amount': amount,
-                #         'leverage': recommended_leverage,
-                #         'sl_price': sl_price,
-                #         'tp_price': tp_price,
-                #         'sl_percentage': sl_percentage,
-                #         'tp_percentage': tp_percentage,
-                #         'position_size_percentage': position_size_percentage,
-                #         'investment_amount': investment_amount
-                #     }
-                #     trade_id = save_trade(trade_data)
+                    # 거래 데이터 저장
+                    trade_data = {
+                        'action': 'short',
+                        'entry_price': entry_price,
+                        'amount': amount,
+                        'leverage': recommended_leverage,
+                        'sl_price': sl_price,
+                        'tp_price': tp_price,
+                        'sl_percentage': sl_percentage,
+                        'tp_percentage': tp_percentage,
+                        'position_size_percentage': position_size_percentage,
+                        'investment_amount': investment_amount
+                    }
+                    trade_id = save_trade(trade_data)
                     
-                #     # AI 분석 결과와 거래 연결
-                #     update_analysis_sql = "UPDATE ai_analysis SET trade_id = ? WHERE id = ?"
-                #     conn = sqlite3.connect(DB_FILE)
-                #     cursor = conn.cursor()
-                #     cursor.execute(update_analysis_sql, (trade_id, analysis_id))
-                #     conn.commit()
-                #     conn.close()
+                    # AI 분석 결과와 거래 연결
+                    update_analysis_sql = "UPDATE ai_analysis SET trade_id = ? WHERE id = ?"
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    cursor.execute(update_analysis_sql, (trade_id, analysis_id))
+                    conn.commit()
+                    conn.close()
                     
-                #     print(f"\n=== SHORT Position Opened ===")
-                #     print(f"Entry: ${entry_price:,.2f}")
-                #     print(f"Stop Loss: ${sl_price:,.2f} (+{sl_percentage*100:.2f}%)")
-                #     print(f"Take Profit: ${tp_price:,.2f} (-{tp_percentage*100:.2f}%)")
-                #     print(f"Leverage: {recommended_leverage}x")
-                #     print(f"분석 근거: {trading_decision['reasoning']}")
-                #     print("============================")
-
-                #     ##  (너무 자주 콜되어 나중에 추가 됌)
-                #     # 포지션 진입 성공 시 카운터 리셋
-                #     consecutive_no_position_count = 0
-                #     failed_entry_count = 0
-                #     last_api_call_time = time.time()
-
-
-                # else:
-                #     print("Action이 'long' 또는 'short'가 아니므로 주문을 실행하지 않습니다.")
-				# 13.
-				# ===== 13. 포지션 진입 및 SL/TP 주문 실행 =====
-                if action in ["long", "short"]:
-                    # 주문 실행 (재시도 로직 포함)
-                    success, final_amount, final_investment, sl_price, tp_price = execute_order_with_retry(
-                        exchange=exchange,
-                        symbol=symbol,
-                        action=action,
-                        amount=amount,
-                        leverage=recommended_leverage,
-                        sl_percentage=sl_percentage,
-                        tp_percentage=tp_percentage,
-                        entry_price=current_price,
-                        position_size_percentage=position_size_percentage,
-                        max_retries=3
-                    )
-                    
-                    if success:
-                        # 거래 데이터 저장
-                        trade_data = {
-                            'action': action,
-                            'entry_price': current_price,
-                            'amount': final_amount,  # 최종 실행된 수량
-                            'leverage': recommended_leverage,
-                            'sl_price': sl_price,
-                            'tp_price': tp_price,
-                            'sl_percentage': sl_percentage,
-                            'tp_percentage': tp_percentage,
-                            'position_size_percentage': position_size_percentage * last_position_size_multiplier,  # 조정된 비율
-                            'investment_amount': final_investment  # 최종 투자 금액
-                        }
-                        trade_id = save_trade(trade_data)
-                        
-                        # AI 분석 결과와 거래 연결
-                        update_analysis_sql = "UPDATE ai_analysis SET trade_id = ? WHERE id = ?"
-                        conn = sqlite3.connect(DB_FILE)
-                        cursor = conn.cursor()
-                        cursor.execute(update_analysis_sql, (trade_id, analysis_id))
-                        conn.commit()
-                        conn.close()
-                        
-                        # 포지션 정보 출력
-                        position_type = "LONG" if action == "long" else "SHORT"
-                        print(f"\n=== {position_type} Position Opened ===")
-                        print(f"Entry: ${current_price:,.2f}")
-                        print(f"Amount: {final_amount} BTC")
-                        print(f"Investment: ${final_investment:.2f} USDT")
-                        print(f"Stop Loss: ${sl_price:,.2f} ({'-' if action == 'long' else '+'}{sl_percentage*100:.2f}%)")
-                        print(f"Take Profit: ${tp_price:,.2f} ({'+' if action == 'long' else '-'}{tp_percentage*100:.2f}%)")
-                        print(f"Leverage: {recommended_leverage}x")
-                        print(f"분석 근거: {trading_decision['reasoning']}")
-                        print("===========================")
-                        
-                        # 포지션 진입 성공 시 카운터 리셋
-                        consecutive_no_position_count = 0
-                        failed_entry_count = 0
-                        last_api_call_time = time.time()
-                        last_position_size_multiplier = 1.0  # 성공 시 리셋
-                        
-                    else:
-                        # 주문 실패 처리
-                        print("\n주문 실행 실패. 잔액을 확인하세요.")
-                        failed_entry_count += 1
-                        last_api_call_time = time.time()
-                        
+                    print(f"\n=== SHORT Position Opened ===")
+                    print(f"Entry: ${entry_price:,.2f}")
+                    print(f"Stop Loss: ${sl_price:,.2f} (+{sl_percentage*100:.2f}%)")
+                    print(f"Take Profit: ${tp_price:,.2f} (-{tp_percentage*100:.2f}%)")
+                    print(f"Leverage: {recommended_leverage}x")
+                    print(f"분석 근거: {trading_decision['reasoning']}")
+                    print("============================")
                 else:
                     print("Action이 'long' 또는 'short'가 아니므로 주문을 실행하지 않습니다.")
                     
-
             except json.JSONDecodeError as e:
                 print(f"JSON 파싱 오류: {e}")
                 print(f"AI 응답: {response.choices[0].message.content}")
-				#   (너무 자주 콜되어 나중에 추가 됌)
-                failed_entry_count += 1
-                last_api_call_time = time.time()
-				#
-                time.sleep(get_api_wait_time())  # 대기 후 다시 시도
+                time.sleep(30)  # 대기 후 다시 시도
                 continue
             except Exception as e:
                 print(f"기타 오류: {e}")
-				#   (너무 자주 콜되어 나중에 추가 됌)
-                if "insufficient" in str(e).lower() or "balance" in str(e).lower():
-                    failed_entry_count += 1
-                    last_api_call_time = time.time()
-                    print(f"잔액 부족 등의 이유로 진입 실패. {(get_api_wait_time()//60) + 10}분 후 재시도...")
-                #
-                time.sleep(get_api_wait_time()+600)
+                time.sleep(10)
                 continue
 
         # ===== 14. 일정 시간 대기 후 다음 루프 실행 =====
