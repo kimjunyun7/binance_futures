@@ -645,6 +645,21 @@ while True:
         current_price = exchange.fetch_ticker(symbol)['last']
         print(f"\n[{current_time}] Current BTC Price: ${current_price:,.2f}")
 
+		# # 현재 잔고 조회
+    
+        # exchange = ccxt.binance(config={
+        #     'apiKey': api_key,
+        #     'secret': secret,
+        #     'enableRateLimit': True,
+        #     'options': {
+        #         'defaultType': 'future'
+        #     }
+        # })
+        # # balance
+        # balance = exchange.fetch_balance()
+        # usdt_balance = balance['USDT']
+        # print(f'@@@@@@@@@@@@@@@@@@{usdt_balance}@@@@@@@@@@@@@@@')
+
         # ===== 1. 현재 포지션 확인 =====
         current_side = None  # 현재 포지션 방향 (long/short/None)
         amount = 0  # 포지션 수량
@@ -744,6 +759,12 @@ You adhere strictly to Warren Buffett's investment principles:
 
 **Rule No.1: Never lose money.**
 **Rule No.2: Never forget rule No.1.**
+**Rule No.3: Wait for Momentum Confirmation.**
+**Rule No.4: Confirm trend alignment across multiple timeframes before entry.**
+**Rule No.5: Seek additional indicator confirmation for all entry signals.**
+**Rule No.6: Ensure sufficient trading volume accompanies all entry signals.**
+**Rule No.7: Take partial profits at predetermined targets to secure gains. **
+**Rule No.8: Adjust position sizing based on current market volatility. **
 
 Analyze the market data across different timeframes (15m, 1h, 4h), recent news headlines, and historical trading performance to provide your trading decision.
 
@@ -852,6 +873,7 @@ IMPORTANT: Do not format your response as a code block. Do not include ```json, 
                 trading_decision = json.loads(response_content)
                 
                 # 결정 내용 출력
+                print(f'Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}')
                 print(f"AI 거래 결정:")
                 print(f"방향: {trading_decision['direction']}")
                 print(f"추천 포지션 크기: {trading_decision['recommended_position_size']*100:.1f}%")
@@ -880,23 +902,40 @@ IMPORTANT: Do not format your response as a code block. Do not include ```json, 
                 if action == "no_position":
                     print("현재 시장 상황에서는 포지션을 열지 않는 것이 좋습니다.")
                     print(f"이유: {trading_decision['reasoning']}")
-                    time.sleep(60)  # 포지션 없을 때 1분 대기
+                    time.sleep(600)  # 포지션 없을 때 1분 대기
                     continue
                     
                 # ===== 9. 투자 금액 계산 =====
                 # 현재 잔액 확인
                 balance = exchange.fetch_balance()
                 available_capital = balance['USDT']['free']  # 가용 USDT 잔액
+                total_capital = balance['USDT']['total']  # 전체 USDT 잔액 
+
+                print(f"현재 USDT 잔고 - 가용: ${available_capital:.2f}, 전체: ${total_capital:.2f}")
                 
+				# 최소 주문 금액 설정
+                min_investment_amount = 20  # 코드에서 사용하는 최소 투자 금액
+                
+                # 잔액이 최소 투자 금액보다 적은 경우 6시간 대기
+                if available_capital < min_investment_amount:
+                    print(f"잔고 부족! 가용 잔액(${available_capital:.2f})이 최소 투자 금액(${min_investment_amount})보다 적습니다.")
+                    print("6시간 후에 다시 확인합니다...")
+                    time.sleep(21600)  # 6시간 = 21600초
+                    continue
+
                 # AI 추천 포지션 크기 비율 적용
                 position_size_percentage = trading_decision['recommended_position_size']
                 investment_amount = available_capital * position_size_percentage
                 
                 # 최소 주문 금액 확인 (최소 100 USDT)
-                if investment_amount < 100:
-                    investment_amount = 100
-                    print(f"최소 주문 금액(100 USDT)으로 조정됨")
-                
+                if investment_amount < min_investment_amount:
+                    investment_amount = min_investment_amount
+                    print(f"최소 주문 금액({min_investment_amount} USDT)으로 조정됨(레버리지 적용 후 값)")
+                else:
+                    # 이론상 여기 도달하지 않아야 함 (위에서 이미 체크)
+                    print(f"잔고 부족으로 거래 불가. 6시간 후 재시도...")
+                    time.sleep(21600)  # 6시간 = 21600초
+                    continue
                 print(f"투자 금액: {investment_amount:.2f} USDT")
                 
                 # ===== 10. 주문 수량 계산 =====
@@ -1009,11 +1048,17 @@ IMPORTANT: Do not format your response as a code block. Do not include ```json, 
             except json.JSONDecodeError as e:
                 print(f"JSON 파싱 오류: {e}")
                 print(f"AI 응답: {response.choices[0].message.content}")
-                time.sleep(30)  # 대기 후 다시 시도
+                time.sleep(10800)  # 대기 후 다시 시도
                 continue
             except Exception as e:
                 print(f"기타 오류: {e}")
-                time.sleep(10)
+				 # 잔고 부족 관련 에러인지 확인
+                error_msg = str(e).lower()
+                if "insufficient" in error_msg or "balance" in error_msg:
+                    print("잔고 부족으로 인한 오류. 6시간 후 재시도...")
+                    time.sleep(21600)  # 6시간
+                else:
+                    time.sleep(10)
                 continue
 
         # ===== 14. 일정 시간 대기 후 다음 루프 실행 =====
@@ -1021,4 +1066,4 @@ IMPORTANT: Do not format your response as a code block. Do not include ```json, 
 
     except Exception as e:
         print(f"\n Error: {e}")
-        time.sleep(5)
+        time.sleep(600)
