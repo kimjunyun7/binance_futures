@@ -287,7 +287,8 @@ def fetch_bitcoin_news():
     payload = json.dumps({
         "q": "bitcoin", # 검색어
         "gl": "us",     # 국가
-        "hl": "en"      # 언어
+        "hl": "en",      # 언어
+        "num": 10        # 뉴스 개수
     })
 
     # 3. API 키는 헤더(headers)에 추가됩니다.
