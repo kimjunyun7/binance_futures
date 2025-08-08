@@ -41,7 +41,7 @@ symbol = "BTC/USDT"
 client = OpenAI()
 
 # SERP API (Optional)
-serp_api_key = os.getenv("SERP_API_KEY")
+# serp_api_key = os.getenv("SERP_API_KEY")
 
 # Mock Database
 DB_FILE = "mock_trading.db"
@@ -254,19 +254,61 @@ def fetch_multi_timeframe_data():
     return multi_tf_data
 
 def fetch_bitcoin_news():
-    if not serp_api_key:
+    # if not serp_api_key:
+    #     return []
+    # try:
+    #     url = "https://serpapi.com/search.json"
+    #     params = {"engine": "google_news", "q": "bitcoin", "gl": "us", "hl": "en", "api_key": serp_api_key}
+    #     response = requests.get(url, params=params)
+    #     if response.status_code == 200:
+    #         news_results = response.json().get("news_results", [])
+    #         return [{"title": n.get("title", ""), "date": n.get("date", "")} for n in news_results[:10]]
+    #     else:
+    #         return []
+    # except Exception as e:
+    #     print(f"Error fetching news: {e}")
+    #     return []
+
+    """
+    Serper API를 사용해 비트코인 관련 최신 뉴스를 가져옵니다.
+    """
+    # .env 파일에서 Serper API 키를 가져옵니다.
+    # .env 파일에 SERPER_API_KEY="your_key" 형태로 저장해두세요.
+    serper_api_key = os.getenv("SERPER_API_KEY")
+
+    if not serper_api_key:
+        print("SERPER_API_KEY가 .env 파일에 설정되지 않았습니다.")
         return []
+
+    # 1. API URL이 변경되었습니다.
+    url = "https://google.serper.dev/news"
+
+    # 2. 파라미터는 JSON 형태로 구성합니다.
+    payload = json.dumps({
+        "q": "bitcoin", # 검색어
+        "gl": "us",     # 국가
+        "hl": "en"      # 언어
+    })
+
+    # 3. API 키는 헤더(headers)에 추가됩니다.
+    headers = {
+        'X-API-KEY': serper_api_key,
+        'Content-Type': 'application/json'
+    }
+
     try:
-        url = "https://serpapi.com/search.json"
-        params = {"engine": "google_news", "q": "bitcoin", "gl": "us", "hl": "en", "api_key": serp_api_key}
-        response = requests.get(url, params=params)
-        if response.status_code == 200:
-            news_results = response.json().get("news_results", [])
-            return [{"title": n.get("title", ""), "date": n.get("date", "")} for n in news_results[:10]]
-        else:
-            return []
-    except Exception as e:
-        print(f"Error fetching news: {e}")
+        # 4. POST 방식으로 요청을 보냅니다.
+        response = requests.post(url, headers=headers, data=payload)
+        response.raise_for_status() # 오류가 발생하면 예외를 발생시킴
+
+        data = response.json()
+        news_results = data.get("news", []) # 결과는 'news' 키 안에 들어있습니다.
+
+        # print(f"Serper API로 {len(news_results)}개의 뉴스를 가져왔습니다.")
+        return news_results
+
+    except requests.exceptions.RequestException as e:
+        print(f"Serper API 요청 중 오류가 발생했습니다: {e}")
         return []
 
 # ===== 메인 모의 트레이딩 루프 =====
