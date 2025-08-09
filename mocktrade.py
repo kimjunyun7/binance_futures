@@ -178,23 +178,21 @@ def close_mock_trade(trade_id, exit_price):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # 종료할 거래 정보 가져오기
     cursor.execute("SELECT * FROM mock_trades WHERE id = ?", (trade_id,))
     trade = cursor.fetchone()
     if not trade:
+        conn.close()
         return
 
-    # 손익 계산
+    # --- 손익 계산 수정 ---
+    # amount 자체가 레버리지가 적용된 포지션 크기이므로, 레버리지를 추가로 곱하지 않습니다.
     if trade['action'] == 'long':
-        # (청산가 - 진입가) * 수량 * 레버리지
         profit_loss = (exit_price - trade['entry_price']) * trade['amount']
     else: # 'short'
-        # (진입가 - 청산가) * 수량 * 레버리지
         profit_loss = (trade['entry_price'] - exit_price) * trade['amount']
     
-    # 투자 원금 (레버리지 적용 전)
-    investment_amount = (trade['entry_price'] * trade['amount']) / trade['leverage']
-
+    investment_margin = (trade['entry_price'] * trade['amount']) / trade['leverage']
+    
     # DB 업데이트
     cursor.execute('''
     UPDATE mock_trades
@@ -203,17 +201,15 @@ def close_mock_trade(trade_id, exit_price):
     ''', (exit_price, datetime.now().isoformat(), profit_loss, trade_id))
     
     conn.commit()
+    conn.close() # DB 연결을 먼저 닫습니다.
 
     # 지갑 잔고 업데이트
     current_balance = get_wallet_balance()
-    # PNL은 레버리지가 적용된 금액이므로 그대로 더함
     new_balance = current_balance + profit_loss
     update_wallet_balance(new_balance)
     
-    conn.close()
-    
     # 결과 출력
-    pnl_percentage = (profit_loss / investment_amount) * 100
+    pnl_percentage = (profit_loss / investment_margin) * 100 if investment_margin > 0 else 0
     print(f"\n{'='*10} MOCK POSITION CLOSED {'='*10}")
     print(f"Trade ID: {trade['id']} ({trade['action'].upper()})")
     print(f"Entry: ${trade['entry_price']:,.2f} | Exit: ${exit_price:,.2f}")
@@ -326,9 +322,10 @@ def main():
 
             # --- 1. 포지션이 있는 경우: SL/TP 확인 ---
             if open_trade:
+                # (이전과 동일한 SL/TP 확인 로직)
+                # ... (생략) ...
                 print(f"Monitoring OPEN position: {open_trade['action'].upper()} | Entry: ${open_trade['entry_price']:,.2f} | SL: ${open_trade['sl_price']:,.2f} | TP: ${open_trade['tp_price']:,.2f}")
                 
-                # SL/TP 로직
                 is_closed = False
                 if open_trade['action'] == 'long':
                     if current_price <= open_trade['sl_price']:
@@ -351,44 +348,39 @@ def main():
                         is_closed = True
                 
                 if is_closed:
-                    time.sleep(10) # 거래 종료 후 잠시 대기
+                    time.sleep(10)
                     continue
 
             # --- 2. 포지션이 없는 경우: 새로운 거래 분석 ---
             else:
                 print("No open position. Analyzing market for new trade...")
                 
-                # 데이터 수집
                 market_data = fetch_multi_timeframe_data()
-                news_data = fetch_bitcoin_news()
-                historical_data = get_historical_trading_data(limit=10)
-                wallet_balance = get_wallet_balance()
-
+                # 데이터 수집 실패 시 루프 건너뛰기 (안정성 강화)
                 if not market_data:
                     print("Could not fetch market data. Retrying in 1 minute.")
                     time.sleep(60)
                     continue
 
-                # --- 이 부분을 수정합니다 ---
+                news_data = fetch_bitcoin_news()
+                historical_data = get_historical_trading_data(limit=10)
+                wallet_balance = get_wallet_balance()
 
-
-                # 먼저 market_data의 Timestamp를 텍스트(string)로 변환합니다.
+                # (이전과 동일한 analysis_input 생성 로직, 이미 수정 완료됨)
+                # ... (생략) ...
                 timeframes_data_for_json = {}
                 for tf, df in market_data.items():
-                    # 'timestamp' 컬럼의 데이터 타입을 Timestamp에서 ISO 형식의 문자열로 변경
-                    df['timestamp'] = df['timestamp'].dt.isoformat() 
+                    df['timestamp'] = df['timestamp'].astype(str)
                     timeframes_data_for_json[tf] = df.to_dict(orient="records")
-
+                
                 analysis_input = {
                     "current_price": current_price,
                     "wallet_balance_usd": wallet_balance,
-                    "timeframes": timeframes_data_for_json, # 변환된 데이터를 사용
+                    "timeframes": timeframes_data_for_json,
                     "recent_news": news_data,
                     "historical_trading_data": historical_data
                 }
 
-
-                # OpenAI API 호출
                 print("Asking AI for trading advice...")
                 response = client.chat.completions.create(
                     model="gpt-4o",
@@ -396,42 +388,49 @@ def main():
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": json.dumps(analysis_input, indent=2)}
                     ],
-                    response_format={"type": "json_object"} # JSON 모드 강제
+                    response_format={"type": "json_object"}
                 )
                 
                 response_content = response.choices[0].message.content
                 decision = json.loads(response_content)
                 
-                print(f"AI Decision: {decision['direction']} | Reason: {decision['reasoning']}")
+                # --- AI 응답 처리 수정 (안정성 강화) ---
+                # .get()을 사용하여 키가 없어도 오류가 발생하지 않도록 함
+                action = decision.get('direction', 'NO_POSITION').lower()
+                reasoning = decision.get('reasoning', 'No specific reason provided.')
 
-                # AI 분석 결과 저장
+                print(f"AI Decision: {action.upper()} | Reason: {reasoning}")
+
                 analysis_data_to_save = {
                     'current_price': current_price,
-                    'direction': decision['direction'],
-                    'reasoning': decision['reasoning']
+                    'direction': action.upper(),
+                    'reasoning': reasoning
                 }
                 analysis_id = save_ai_analysis(analysis_data_to_save)
 
-                # 거래 실행
-                if decision['direction'] in ["LONG", "SHORT"]:
-                    action = decision['direction'].lower()
-                    leverage = int(decision['recommended_leverage'])
-                    position_size_pct = float(decision['recommended_position_size'])
-                    sl_pct = float(decision['stop_loss_percentage'])
-                    tp_pct = float(decision['take_profit_percentage'])
+                if action in ["long", "short"]:
+                    leverage = int(decision.get('recommended_leverage', 1)) # 기본값 1
+                    position_size_pct = float(decision.get('recommended_position_size', 0)) # 기본값 0
+                    sl_pct = float(decision.get('stop_loss_percentage', 0))
+                    tp_pct = float(decision.get('take_profit_percentage', 0))
 
-                    # 투자 금액 및 수량 계산
-                    investment_amount_usd = wallet_balance * position_size_pct
-                    if investment_amount_usd < 5: # 최소 투자금액
-                        print("Calculated investment is too small. Skipping trade.")
+                    # 필수 값이 없는 경우 거래 건너뛰기 (안정성 강화)
+                    if position_size_pct <= 0 or sl_pct <= 0 or tp_pct <= 0:
+                        print("AI recommendation is missing key values (size, sl, tp). Skipping trade.")
                         time.sleep(300)
                         continue
 
-                    # 레버리지를 적용한 총 포지션 가치
+                    # (이전과 동일한 거래 실행 로직)
+                    # ... (생략) ...
+                    investment_amount_usd = wallet_balance * position_size_pct
+                    if investment_amount_usd < 5:
+                        print("Calculated investment is too small. Skipping trade.")
+                        time.sleep(300)
+                        continue
+                    
                     total_position_value = investment_amount_usd * leverage
                     amount_btc = total_position_value / current_price
-
-                    # SL/TP 가격 계산
+                    
                     if action == 'long':
                         sl_price = current_price * (1 - sl_pct)
                         tp_price = current_price * (1 + tp_pct)
@@ -439,18 +438,12 @@ def main():
                         sl_price = current_price * (1 + sl_pct)
                         tp_price = current_price * (1 - sl_pct)
 
-                    # 가상 거래 데이터 생성 및 저장
                     mock_trade_data = {
-                        'action': action,
-                        'entry_price': current_price,
-                        'amount': amount_btc,
-                        'leverage': leverage,
-                        'sl_price': sl_price,
-                        'tp_price': tp_price
+                        'action': action, 'entry_price': current_price, 'amount': amount_btc,
+                        'leverage': leverage, 'sl_price': sl_price, 'tp_price': tp_price
                     }
                     trade_id = save_mock_trade(mock_trade_data)
-
-                    # AI 분석 기록에 거래 ID 업데이트
+                    
                     conn = sqlite3.connect(DB_FILE)
                     cursor = conn.cursor()
                     cursor.execute("UPDATE mock_ai_analysis SET trade_id = ? WHERE id = ?", (trade_id, analysis_id))
@@ -469,8 +462,6 @@ def main():
                 else: # NO_POSITION
                     print("AI recommends NO POSITION. Waiting for the next opportunity.")
             
-            # 다음 루프까지 대기
-            # 포지션이 있으면 10초마다 가격 확인, 없으면 5분마다 시장 분석
             sleep_time = 10 if open_trade else 300
             print(f"Waiting for {sleep_time} seconds...")
             time.sleep(sleep_time)
