@@ -22,7 +22,8 @@ import sqlite3
 from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import datetime
-from prompts import SYSTEM_PROMPT # prompts.py에서 프롬프트 가져오기
+# from prompts import SYSTEM_PROMPT
+ACTIVE_PROMPT_FILE = "/home/ubuntu/binance_futures/active_prompt.txt"
 
 # ===== 설정 및 초기화 =====
 load_dotenv()
@@ -382,10 +383,14 @@ def main():
                 }
 
                 print("Asking AI for trading advice...")
+
+                # 실시간으로 active_prompt.txt 파일의 내용을 읽어옴
+                with open(ACTIVE_PROMPT_FILE, "r") as f:
+                    system_prompt_content = f.read()
                 response = client.chat.completions.create(
                     model="gpt-4o",
                     messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "system", "content": system_prompt_content},
                         {"role": "user", "content": json.dumps(analysis_input, indent=2)}
                     ],
                     response_format={"type": "json_object"}
