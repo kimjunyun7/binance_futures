@@ -369,14 +369,24 @@ def main():
                     time.sleep(60)
                     continue
 
-                # AI 분석을 위한 데이터 준비
+                # --- 이 부분을 수정합니다 ---
+
+
+                # 먼저 market_data의 Timestamp를 텍스트(string)로 변환합니다.
+                timeframes_data_for_json = {}
+                for tf, df in market_data.items():
+                    # 'timestamp' 컬럼의 데이터 타입을 Timestamp에서 ISO 형식의 문자열로 변경
+                    df['timestamp'] = df['timestamp'].dt.isoformat() 
+                    timeframes_data_for_json[tf] = df.to_dict(orient="records")
+
                 analysis_input = {
                     "current_price": current_price,
                     "wallet_balance_usd": wallet_balance,
-                    "timeframes": {tf: df.to_dict(orient="records") for tf, df in market_data.items()},
+                    "timeframes": timeframes_data_for_json, # 변환된 데이터를 사용
                     "recent_news": news_data,
                     "historical_trading_data": historical_data
                 }
+
 
                 # OpenAI API 호출
                 print("Asking AI for trading advice...")
