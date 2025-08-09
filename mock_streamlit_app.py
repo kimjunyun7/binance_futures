@@ -97,23 +97,23 @@ def draw_dashboard():
         else:
             st.info("거래 내역이 없습니다.")
     with col2:
-    st.subheader("🧠 AI 분석 로그")
-    if not data['ai_log'].empty:
-        # 각 로그 항목을 순회하며 개별적으로 표시
-        for index, row in data['ai_log'].iterrows():
-            # st.expander를 사용해 접이식 메뉴로 만듦
-            with st.expander(f"**{row['timestamp']}** | 추천: **{row['direction']}**"):
-                # CSS를 이용해 3줄까지만 보이도록 하고 스크롤바 생성
-                st.markdown(
-                    f"""
-                    <div style="height: 6em; overflow-y: auto; border: 1px solid #e6e6e6; padding: 10px; border-radius: 5px;">
-                        {row['reasoning']}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-    else:
-        st.info("AI 분석 로그가 없습니다.")
+        st.subheader("🧠 AI 분석 로그")
+        if not data['ai_log'].empty:
+            # 각 로그 항목을 순회하며 개별적으로 표시
+            for index, row in data['ai_log'].iterrows():
+                # st.expander를 사용해 접이식 메뉴로 만듦
+                with st.expander(f"**{row['timestamp']}** | 추천: **{row['direction']}**"):
+                    # CSS를 이용해 3줄까지만 보이도록 하고 스크롤바 생성
+                    st.markdown(
+                        f"""
+                        <div style="height: 6em; overflow-y: auto; border: 1px solid #e6e6e6; padding: 10px; border-radius: 5px;">
+                            {row['reasoning']}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+        else:
+            st.info("AI 분석 로그가 없습니다.")
     # 30초(30000 밀리초)마다 페이지를 부드럽게 새로고침함.
     st_autorefresh(interval=30000, key="data_refresher")
 
