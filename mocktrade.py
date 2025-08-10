@@ -21,16 +21,15 @@ import json
 import sqlite3
 from dotenv import load_dotenv
 from openai import OpenAI
-from datetime import datetime
-# from prompts import SYSTEM_PROMPT
+from datetime import datetime, timedelta # timedelta 추가
+from prompts import SYSTEM_PROMPT_UPDATE # 수정용 프롬프트 추가
+
 ACTIVE_PROMPT_FILE = "/home/ubuntu/binance_futures/active_prompt.txt"
 
-print("--- CHECKPOINT 1: 모든 라이브러리 임포트 완료 ---") # <-- 추가
 
 # ===== 설정 및 초기화 =====
 load_dotenv()
 
-print("--- CHECKPOINT 2: 바이낸스 연결 시도 직전 ---") # <-- 추가
 # Binance API (Public data only)
 exchange = ccxt.binance({
     'enableRateLimit': True,
@@ -39,7 +38,7 @@ exchange = ccxt.binance({
         'adjustForTimeDifference': True
     }
 })
-print("--- CHECKPOINT 3: 바이낸스 연결 성공 ---") # <-- 추가
+
 symbol = "BTC/USDT"
 
 # OpenAI API
@@ -256,6 +255,16 @@ def fetch_multi_timeframe_data():
             print(f"Error fetching {tf} data: {e}")
     return multi_tf_data
 
+
+def update_trade_exit_points(trade_id, new_tp, new_sl):
+    """기존 거래의 TP/SL 가격을 업데이트합니다."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE mock_trades SET tp_price = ?, sl_price = ? WHERE id = ?", (new_tp, new_sl, trade_id))
+    conn.commit()
+    conn.close()
+
+
 def fetch_bitcoin_news():
     # if not serp_api_key:
     #     return []
@@ -317,9 +326,11 @@ def fetch_bitcoin_news():
 
 # ===== 메인 모의 트레이딩 루프 =====
 def main():
-    print("--- CHECKPOINT 4: main() 함수 진입 ---") # <-- 추가
     print("\n" + "="*15 + " MOCK TRADING BOT STARTED " + "="*15)
     setup_database()
+
+    # 포지션 진입 후 재분석을 위한 시간 추적 변수
+    last_in_position_analysis = None
 
     while True:
         try:
@@ -333,6 +344,7 @@ def main():
                 print(f"Monitoring OPEN position: {open_trade['action'].upper()} | Entry: ${open_trade['entry_price']:,.2f} | SL: ${open_trade['sl_price']:,.2f} | TP: ${open_trade['tp_price']:,.2f}")
                 
                 is_closed = False
+                # --- A. 기본적인 SL/TP 확인 ---
                 # 롱 포지션의 손절/익절 확인
                 if open_trade['action'] == 'long':
                     if current_price <= open_trade['sl_price']:
@@ -355,15 +367,85 @@ def main():
                         close_mock_trade(open_trade['id'], open_trade['tp_price'])
                         is_closed = True
                 
+                # --- B. 10분마다 재분석하여 TP/SL 업데이트 ---
+                # 10분 간격 설정 (timedelta(minutes=10))
+                re_analysis_interval = timedelta(minutes=10) 
+                
+                if last_in_position_analysis is None or (datetime.now() - last_in_position_analysis) > re_analysis_interval:
+                    print("\n" + "="*10 + " Performing In-Position Re-Analysis " + "="*10)
+                    
+                    # AI에게 보낼 현재 포지션 상태 계산
+                    margin = (open_trade['entry_price'] * open_trade['amount']) / open_trade['leverage']
+                    pnl = (current_price - open_trade['entry_price']) * open_trade['amount'] if open_trade['action'] == 'long' else (open_trade['entry_price'] - current_price) * open_trade['amount']
+                    pnl_percent = (pnl / margin) * 100 if margin > 0 else 0
+                    
+                    # AI 분석 요청
+                    market_data = fetch_multi_timeframe_data()
+                    news_data = fetch_bitcoin_news()
+                    
+                    # 새로운 프롬프트 포맷팅
+                    prompt_for_update = SYSTEM_PROMPT_UPDATE.format(
+                        side=open_trade['action'].upper(),
+                        entry_price=open_trade['entry_price'],
+                        current_price=current_price,
+                        pnl_percentage=f"{pnl_percent:.2f}"
+                    )
+                    
+                    analysis_input_update = {
+                        "timeframes": {tf: df.to_dict(orient="records") for tf, df in market_data.items()},
+                        "recent_news": news_data
+                    }
+                    
+                    response = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[
+                            {"role": "system", "content": prompt_for_update},
+                            {"role": "user", "content": json.dumps(analysis_input_update)}
+                        ],
+                        response_format={"type": "json_object"}
+                    )
+                    decision = json.loads(response.choices[0].message.content)
+                    ai_action = decision.get('action', 'HOLD')
+                    
+                    print(f"AI Re-Analysis Decision: {ai_action} | Reason: {decision.get('reasoning')}")
+
+                    if ai_action == "CLOSE":
+                        print("AI recommends closing position. Closing now.")
+                        close_mock_trade(open_trade['id'], current_price)
+                        is_closed = True
+                    
+                    elif ai_action == "ADJUST":
+                        new_tp_pct = float(decision.get('new_tp_percentage', 0))
+                        new_sl_pct = float(decision.get('new_sl_percentage', 0))
+                        
+                        if new_tp_pct > 0 and new_sl_pct > 0:
+                            # 현재 가격 기준으로 새로운 TP/SL 계산
+                            if open_trade['action'] == 'long':
+                                new_tp_price = current_price * (1 + new_tp_pct)
+                                new_sl_price = current_price * (1 - new_sl_pct)
+                            else: # short
+                                new_tp_price = current_price * (1 - new_tp_pct)
+                                new_sl_price = current_price * (1 + new_sl_pct)
+                            
+                            # DB에 새로운 TP/SL 업데이트
+                            update_trade_exit_points(open_trade['id'], new_tp_price, new_sl_price)
+                            print(f"TP/SL Updated. New TP: ${new_tp_price:,.2f}, New SL: ${new_sl_price:,.2f}")
+                    
+                    # 마지막 분석 시간 기록
+                    last_in_position_analysis = datetime.now()
+
                 # 포지션이 종료되었다면, 잠시 대기 후 루프의 처음으로 돌아감
                 if is_closed:
+                    last_in_position_analysis = None # 포지션 종료 시 분석 시간 초기화
                     time.sleep(10)
                     continue
+                
 
             # --- 2. 포지션이 없는 경우: 새로운 거래 분석 ---
             else:
                 print("No open position. Analyzing market for new trade...")
-                
+                last_in_position_analysis = None # 포지션 없을 때도 분석 시간 초기화
+
                 market_data = fetch_multi_timeframe_data()
                 if not market_data:
                     print("Could not fetch market data. Retrying in 1 minute.")
@@ -467,8 +549,8 @@ def main():
                 else: # NO_POSITION
                     print("AI recommends NO POSITION. Waiting for the next opportunity.")
             
-            # 포지션이 있으면 10초, 없으면 60초(1분) 대기
-            sleep_time = 10 if open_trade else 60
+             # 대기 시간: 포지션 있으면 1분, 없으면 1분
+            sleep_time = 60
             print(f"Waiting for {sleep_time} seconds...")
             time.sleep(sleep_time)
 
