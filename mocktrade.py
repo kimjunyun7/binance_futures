@@ -323,11 +323,10 @@ def main():
 
             # --- 1. 포지션이 있는 경우: SL/TP 확인 ---
             if open_trade:
-                # (이전과 동일한 SL/TP 확인 로직)
-                # ... (생략) ...
                 print(f"Monitoring OPEN position: {open_trade['action'].upper()} | Entry: ${open_trade['entry_price']:,.2f} | SL: ${open_trade['sl_price']:,.2f} | TP: ${open_trade['tp_price']:,.2f}")
                 
                 is_closed = False
+                # 롱 포지션의 손절/익절 확인
                 if open_trade['action'] == 'long':
                     if current_price <= open_trade['sl_price']:
                         print(f"Stop Loss triggered for LONG position at ${current_price:,.2f}")
@@ -338,6 +337,7 @@ def main():
                         close_mock_trade(open_trade['id'], open_trade['tp_price'])
                         is_closed = True
                 
+                # 숏 포지션의 손절/익절 확인
                 elif open_trade['action'] == 'short':
                     if current_price >= open_trade['sl_price']:
                         print(f"Stop Loss triggered for SHORT position at ${current_price:,.2f}")
@@ -348,6 +348,7 @@ def main():
                         close_mock_trade(open_trade['id'], open_trade['tp_price'])
                         is_closed = True
                 
+                # 포지션이 종료되었다면, 잠시 대기 후 루프의 처음으로 돌아감
                 if is_closed:
                     time.sleep(10)
                     continue
@@ -357,7 +358,6 @@ def main():
                 print("No open position. Analyzing market for new trade...")
                 
                 market_data = fetch_multi_timeframe_data()
-                # 데이터 수집 실패 시 루프 건너뛰기 (안정성 강화)
                 if not market_data:
                     print("Could not fetch market data. Retrying in 1 minute.")
                     time.sleep(60)
@@ -367,8 +367,6 @@ def main():
                 historical_data = get_historical_trading_data(limit=10)
                 wallet_balance = get_wallet_balance()
 
-                # (이전과 동일한 analysis_input 생성 로직, 이미 수정 완료됨)
-                # ... (생략) ...
                 timeframes_data_for_json = {}
                 for tf, df in market_data.items():
                     df['timestamp'] = df['timestamp'].astype(str)
@@ -382,11 +380,11 @@ def main():
                     "historical_trading_data": historical_data
                 }
 
-                print("Asking AI for trading advice...")
-
-                # 실시간으로 active_prompt.txt 파일의 내용을 읽어옴
+                # active_prompt.txt 파일의 내용을 읽어옴
                 with open(ACTIVE_PROMPT_FILE, "r") as f:
                     system_prompt_content = f.read()
+
+                print("Asking AI for trading advice...")
                 response = client.chat.completions.create(
                     model="gpt-4o",
                     messages=[
@@ -399,38 +397,33 @@ def main():
                 response_content = response.choices[0].message.content
                 decision = json.loads(response_content)
                 
-                # --- AI 응답 처리 수정 (안정성 강화) ---
-                # .get()을 사용하여 키가 없어도 오류가 발생하지 않도록 함
                 action = decision.get('direction', 'NO_POSITION').lower()
                 reasoning = decision.get('reasoning', 'No specific reason provided.')
-
                 print(f"AI Decision: {action.upper()} | Reason: {reasoning}")
 
-                analysis_data_to_save = {
-                    'current_price': current_price,
-                    'direction': action.upper(),
-                    'reasoning': reasoning
-                }
-                analysis_id = save_ai_analysis(analysis_data_to_save)
-
+                # 거래를 실행할 때만 AI 분석 로그를 저장하도록 수정
                 if action in ["long", "short"]:
-                    leverage = int(decision.get('recommended_leverage', 1)) # 기본값 1
-                    position_size_pct = float(decision.get('recommended_position_size', 0)) # 기본값 0
+                    analysis_data_to_save = {
+                        'current_price': current_price,
+                        'direction': action.upper(),
+                        'reasoning': reasoning
+                    }
+                    analysis_id = save_ai_analysis(analysis_data_to_save)
+
+                    leverage = int(decision.get('recommended_leverage', 1))
+                    position_size_pct = float(decision.get('recommended_position_size', 0))
                     sl_pct = float(decision.get('stop_loss_percentage', 0))
                     tp_pct = float(decision.get('take_profit_percentage', 0))
 
-                    # 필수 값이 없는 경우 거래 건너뛰기 (안정성 강화)
                     if position_size_pct <= 0 or sl_pct <= 0 or tp_pct <= 0:
                         print("AI recommendation is missing key values (size, sl, tp). Skipping trade.")
-                        time.sleep(300)
+                        time.sleep(60)
                         continue
-
-                    # (이전과 동일한 거래 실행 로직)
-                    # ... (생략) ...
+                    
                     investment_amount_usd = wallet_balance * position_size_pct
                     if investment_amount_usd < 5:
                         print("Calculated investment is too small. Skipping trade.")
-                        time.sleep(300)
+                        time.sleep(60)
                         continue
                     
                     total_position_value = investment_amount_usd * leverage
@@ -463,11 +456,12 @@ def main():
                     print(f"Stop Loss: ${sl_price:,.2f} (-{sl_pct*100:.2f}%)")
                     print(f"Take Profit: ${tp_price:,.2f} (+{tp_pct*100:.2f}%)")
                     print("="*42)
-
+                
                 else: # NO_POSITION
                     print("AI recommends NO POSITION. Waiting for the next opportunity.")
             
-            sleep_time = 10 if open_trade else 300
+            # 포지션이 있으면 10초, 없으면 60초(1분) 대기
+            sleep_time = 3600 if open_trade else 60
             print(f"Waiting for {sleep_time} seconds...")
             time.sleep(sleep_time)
 
