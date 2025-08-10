@@ -142,12 +142,28 @@ def render_dashboard_page():
     st.subheader("🚀 현재 포지션 (OPEN)")
     if not data['open_trade'].empty:
         trade = data['open_trade'].iloc[0]
+        
+        # st.metric을 사용해 5개 컬럼에 정보를 깔끔하게 표시
         cols = st.columns(5)
-        cols[0].info(f"**방향**: {trade['action'].upper()}")
-        cols[1].info(f"**진입가**: ${trade['entry_price']:,.2f}")
-        cols[2].info(f"**수량**: {trade['amount']:.4f} BTC")
-        cols[3].warning(f"**손절가**: ${trade['sl_price']:,.2f}")
-        cols[4].success(f"**익절가**: ${trade['tp_price']:,.2f}")
+        
+        # 1. 포지션 방향
+        cols[0].metric(label="포지션", value=trade['action'].upper())
+        
+        # 2. 진입 가격
+        cols[1].metric(label="진입 가격 (USDT)", value=f"{trade['entry_price']:,.2f}")
+        
+        # 3. 포지션 크기 (BTC)
+        cols[2].metric(label="수량 (BTC)", value=f"{trade['amount']:.4f}")
+        
+        # 4. 손절 가격
+        cols[3].metric(label="손절가 (USDT)", value=f"{trade['sl_price']:,.2f}", 
+                    delta=f"{(trade['sl_price'] / trade['entry_price'] - 1) * 100:.2f}%", 
+                    delta_color="inverse")
+
+        # 5. 익절 가격
+        cols[4].metric(label="익절가 (USDT)", value=f"{trade['tp_price']:,.2f}",
+                    delta=f"{(trade['tp_price'] / trade['entry_price'] - 1) * 100:.2f}%",
+                    delta_color="normal")
     else:
         st.info("현재 진행 중인 포지션이 없습니다.")
     st.markdown("---")
@@ -262,8 +278,11 @@ def render_log_viewer_page():
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         
         if result.returncode == 0:
-            log_content = result.stdout
-            st.text_area("Log Output", log_content, height=500, key="log_output_area")
+            log_lines = result.stdout.strip().splitlines()
+            reversed_logs = log_lines[::-1] 
+            log_content = "\n".join(reversed_logs)
+            
+            st.text_area("Log Output (최신 내용이 위쪽에 표시됩니다)", log_content, height=500, key="log_output_area")
         else:
             st.error(f"로그를 가져오는 데 실패했습니다:\n{result.stderr}")
 
