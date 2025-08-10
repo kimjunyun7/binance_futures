@@ -142,6 +142,10 @@ def fetch_data():
         "trade_history": trade_history_df, "ai_log": ai_log_df, "adjustment_history": adjustment_history_df
     }
 
+def get_db_connection():
+"""데이터베이스 커넥션을 반환합니다."""
+return sqlite3.connect(DB_FILE, timeout=10)
+
 # --- 3. UI 페이지 렌더링 함수 ---
 
 def render_dashboard_page():
