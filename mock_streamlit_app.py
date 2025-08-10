@@ -137,62 +137,109 @@ def render_dashboard_page():
     
     st_autorefresh(interval=15000, key="dashboard_refresher") # 15초로 새로고침 단축
     st.title("🤖 AI 모의 트레이딩 봇 대시보드")
-    st.markdown(f"마지막 업데이트: **{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}**")
+    st.markdown(f"마지막 업데이트: **{datetime.now().strftime('%Y-%m-%d %H:%M')}**")
 
     data = fetch_data()
 
-    # --- 1. 핵심 지표 (KPI) ---
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("💰 현재 자산 (USDT)", f"${data['wallet_balance']:,.2f}")
-    col2.metric("📈 총 손익 (USDT)", f"${data['total_pnl']:,.2f}", f"{data['total_pnl'] / 10000 * 100:.2f}%" if data['total_pnl'] != 0 else "0.00%")
-    col3.metric("🎯 승률", f"{data['win_rate']:.2f}%")
-    col4.metric("📊 총 거래 횟수", f"{data['total_trades']} 회")
-    st.markdown("---")
+    # --- 맞춤형 CSS 스타일 정의 ---
+    st.markdown("""
+    <style>
+    /* KPI 메트릭 스타일 */
+    .kpi-container {
+        display: flex;
+        justify-content: space-around;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .kpi-box {
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 10px 15px;
+        text-align: center;
+        flex-grow: 1;
+    }
+    .kpi-label {
+        font-size: 0.8em;
+        color: #888;
+        margin-bottom: 5px;
+    }
+    .kpi-value {
+        font-size: 1.3em;
+        font-weight: 600;
+    }
+
+    /* 현재 포지션 박스 스타일 */
+    .position-box { border: 1px solid #333; border-radius: 8px; padding: 15px; margin-bottom: 20px; background-color: #1a1a1a; }
+    .position-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.95em; }
+    .position-label { color: #aaa; }
+    .position-value { font-weight: 500; color: #DCDCDC; } /* 글자 밝기 수정 */
+    .long { color: #26A69A; font-weight: bold; }
+    .short { color: #EF5350; font-weight: bold; }
+    .pnl-positive { color: #26A69A; }
+    .pnl-negative { color: #EF5350; }
+
+    /* AI 분석 로그 간격 조절 */
+    [data-testid="stExpander"] {
+        margin-bottom: 8px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # --- 핵심 지표 (KPI) ---
+    total_trades = data.get('total_trades', 0)
+    winning_trades = data.get('winning_trades', 0)
+    losing_trades = total_trades - winning_trades
+
+    st.markdown(f"""
+    <div class="kpi-container">
+        <div class="kpi-box">
+            <div class="kpi-label">현재 자산 (USDT)</div>
+            <div class="kpi-value">${data['wallet_balance']:,.2f}</div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-label">총 손익 (USDT)</div>
+            <div class="kpi-value {'pnl-positive' if data['total_pnl'] > 0 else 'pnl-negative' if data['total_pnl'] < 0 else ''}">${data['total_pnl']:,.2f}</div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-label">승률</div>
+            <div class="kpi-value">{data['win_rate']:.1f}%</div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-label">승 / 패</div>
+            <div class="kpi-value">{winning_trades} / {losing_trades}</div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-label">총 거래</div>
+            <div class="kpi-value">{total_trades} 회</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # --- 2. 현재 포지션 정보 ---
+    # --- 현재 포지션 정보 ---
     st.subheader("🚀 현재 포지션 (OPEN)")
     if not data['open_trade'].empty:
         trade = data['open_trade'].iloc[0]
-        
-        # 실시간 손익 계산을 위해 현재 가격 조회
         try:
             current_price = exchange.fetch_ticker(symbol)['last']
-        except Exception as e:
-            st.warning(f"현재 가격 조회 실패: {e}")
-            current_price = trade['entry_price'] # 실패 시 진입가로 대체
+        except Exception:
+            current_price = trade['entry_price']
 
-        # 추가 정보 계산
         entry_time = datetime.fromisoformat(trade['timestamp']).strftime('%y-%m-%d %H:%M')
         margin = (trade['entry_price'] * trade['amount']) / trade['leverage']
-        if trade['action'] == 'long':
-            pnl = (current_price - trade['entry_price']) * trade['amount']
-        else: # short
-            pnl = (trade['entry_price'] - current_price) * trade['amount']
+        pnl = (current_price - trade['entry_price']) * trade['amount'] if trade['action'] == 'long' else (trade['entry_price'] - current_price) * trade['amount']
         pnl_percent = (pnl / margin) * 100 if margin > 0 else 0
 
-        # CSS 스타일 정의
-        st.markdown("""
-        <style>
-        .position-box { border: 1px solid #333; border-radius: 8px; padding: 15px; margin-bottom: 20px; background-color: #1a1a1a; }
-        .position-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.95em; }
-        .position-label { color: #888; }
-        .position-value { font-weight: 500; }
-        .long { color: #26A69A; font-weight: bold; }
-        .short { color: #EF5350; font-weight: bold; }
-        .pnl-positive { color: #26A69A; }
-        .pnl-negative { color: #EF5350; }
-        </style>
-        """, unsafe_allow_html=True)
-
-        # 포지션 방향 및 손익에 따른 색상 클래스 지정
         pos_color_class = "long" if trade['action'] == 'long' else "short"
         pnl_color_class = "pnl-positive" if pnl >= 0 else "pnl-negative"
 
-        # HTML을 사용하여 정보 박스 생성
         st.markdown(f"""
         <div class="position-box">
             <div class="position-row">
-                <span class="position-label">포지션</span>
+                <span class="position-label">진입 시간</span>
+                <span class="position-value">{entry_time}</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">포지션 (레버리지)</span>
                 <span class="position-value {pos_color_class}">{trade['action'].upper()} x{trade['leverage']}</span>
             </div>
             <div class="position-row">
@@ -200,12 +247,12 @@ def render_dashboard_page():
                 <span class="position-value">{trade['amount']:.4f}</span>
             </div>
             <div class="position-row">
-                <span class="position-label">진입 가격 (USDT)</span>
-                <span class="position-value">{trade['entry_price']:,.2f}</span>
-            </div>
-            <div class="position-row">
                 <span class="position-label">투자 원금 (USDT)</span>
                 <span class="position-value">{margin:,.2f}</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">진입 가격 (USDT)</span>
+                <span class="position-value">{trade['entry_price']:,.2f}</span>
             </div>
             <div class="position-row">
                 <span class="position-label">미실현 손익 (USDT)</span>
@@ -215,16 +262,12 @@ def render_dashboard_page():
                 <span class="position-label">TP / SL (USDT)</span>
                 <span class="position-value">{trade['tp_price']:,.2f} / {trade['sl_price']:,.2f}</span>
             </div>
-            <div class="position-row">
-                <span class="position-label">진입 시간</span>
-                <span class="position-value">{entry_time}</span>
-            </div>
         </div>
         """, unsafe_allow_html=True)
     else:
         st.info("현재 진행 중인 포지션이 없습니다.")
-    st.markdown("---")
 
+    # --- 거래 내역 및 AI 로그 ---
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("📋 최근 거래 내역 (CLOSED)")
