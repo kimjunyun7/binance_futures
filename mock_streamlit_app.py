@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 import os
 import subprocess
+import ccxt
 from datetime import datetime
 from dotenv import load_dotenv
 from streamlit_autorefresh import st_autorefresh
