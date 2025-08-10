@@ -383,7 +383,7 @@ def main():
                 
                 # --- B. 10분마다 재분석하여 TP/SL 업데이트 ---
                 # 10분 간격 설정 (timedelta(minutes=10))
-                re_analysis_interval = timedelta(minutes=10) 
+                re_analysis_interval = timedelta(minutes=0.3) 
                 
                 if last_in_position_analysis is None or (datetime.now() - last_in_position_analysis) > re_analysis_interval:
                     print("\n" + "="*10 + " Performing In-Position Re-Analysis " + "="*10)
@@ -418,7 +418,11 @@ def main():
                         ],
                         response_format={"type": "json_object"}
                     )
-                    decision = json.loads(response.choices[0].message.content)
+
+                    # AI의 재분석 결과 처리
+                    response_content = response.choices[0].message.content.strip()
+                    decision = json.loads(response_content)
+
                     ai_action = decision.get('action', 'HOLD')
                     
                     print(f"AI Re-Analysis Decision: {ai_action} | Reason: {decision.get('reasoning')}")

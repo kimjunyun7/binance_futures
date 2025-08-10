@@ -303,7 +303,7 @@ def render_dashboard_page():
             </div>
             """, unsafe_allow_html=True)
     else:
-        st.info("현재 진행 중인 포지션이 없습니다.")
+        st.info("현재 포지션에 추가적인 의견이 없습니다.")
 
 
     # --- 거래 내역 및 AI 로그 ---
