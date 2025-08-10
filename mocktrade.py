@@ -338,6 +338,29 @@ def fetch_bitcoin_news():
         print(f"Serper API 요청 중 오류가 발생했습니다: {e}")
         return []
 
+
+def parse_ai_response(response_content):
+    """
+    AI의 응답을 안전하게 파싱하고, 실패 시 원본 내용을 로그로 남깁니다.
+    """
+    try:
+        # 1. 앞뒤 공백과 줄바꿈을 모두 제거합니다.
+        cleaned_content = response_content.strip()
+        
+        # 2. JSON 파싱을 시도합니다.
+        return json.loads(cleaned_content)
+        
+    except json.JSONDecodeError as e:
+        # 3. 파싱 실패 시, 문제가 된 원본 내용을 정확히 로그에 남깁니다.
+        print("="*20 + " JSON PARSE ERROR " + "="*20)
+        print(f"Error: {e}")
+        print("--- Original AI Response ---")
+        print(response_content)
+        print("="*58)
+        
+        # 4. 봇이 멈추지 않도록 안전한 기본값을 반환합니다.
+        return {"action": "HOLD", "reasoning": "AI response parsing failed."}
+
 # ===== 메인 모의 트레이딩 루프 =====
 def main():
     print("\n" + "="*15 + " MOCK TRADING BOT STARTED " + "="*15)
@@ -350,14 +373,13 @@ def main():
         try:
             current_price = exchange.fetch_ticker(symbol)['last']
             print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Current BTC Price: ${current_price:,.2f}")
-
             open_trade = get_open_trade()
 
             # --- 1. 포지션이 있는 경우: SL/TP 확인 ---
             if open_trade:
                 print(f"Monitoring OPEN position: {open_trade['action'].upper()} | Entry: ${open_trade['entry_price']:,.2f} | SL: ${open_trade['sl_price']:,.2f} | TP: ${open_trade['tp_price']:,.2f}")
-                
                 is_closed = False
+                
                 # --- A. 기본적인 SL/TP 확인 ---
                 # 롱 포지션의 손절/익절 확인
                 if open_trade['action'] == 'long':
@@ -388,38 +410,24 @@ def main():
                 
                 if not is_closed and (last_in_position_analysis is None or (datetime.now() - last_in_position_analysis) > re_analysis_interval):
                     print("\n" + "="*10 + " Performing In-Position Re-Analysis " + "="*10)
-                    
                     margin = (open_trade['entry_price'] * open_trade['amount']) / open_trade['leverage']
                     pnl = (current_price - open_trade['entry_price']) * open_trade['amount'] if open_trade['action'] == 'long' else (open_trade['entry_price'] - current_price) * open_trade['amount']
                     pnl_percent = (pnl / margin) * 100 if margin > 0 else 0
                     
                     market_data = fetch_multi_timeframe_data()
                     news_data = fetch_bitcoin_news()
-                    
-                    prompt_for_update = SYSTEM_PROMPT_UPDATE.format(
-                        side=open_trade['action'].upper(),
-                        entry_price=open_trade['entry_price'],
-                        current_price=current_price,
-                        pnl_percentage=f"{pnl_percent:.2f}"
-                    )
+                    prompt_for_update = SYSTEM_PROMPT_UPDATE.format(side=open_trade['action'].upper(), entry_price=open_trade['entry_price'], current_price=current_price, pnl_percentage=f"{pnl_percent:.2f}")
                     
                     analysis_input_update = { "timeframes": {}, "recent_news": news_data }
                     if market_data:
                         for tf, df in market_data.items():
+                            df['timestamp'] = df['timestamp'].astype(str)
                             analysis_input_update["timeframes"][tf] = df.to_dict(orient="records")
-
-                    response = client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[
-                            {"role": "system", "content": prompt_for_update},
-                            {"role": "user", "content": json.dumps(analysis_input_update)}
-                        ],
-                        response_format={"type": "json_object"}
-                    )
                     
-                    # .strip() 추가하여 JSON 파싱 오류 방지
-                    response_content = response.choices[0].message.content.strip()
-                    decision = json.loads(response_content)
+                    response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "system", "content": prompt_for_update}, {"role": "user", "content": json.dumps(analysis_input_update)}], response_format={"type": "json_object"})
+                    
+                    # 새로운 파싱 함수 사용
+                    decision = parse_ai_response(response.choices[0].message.content)
                     ai_action = decision.get('action', 'HOLD')
                     
                     print(f"AI Re-Analysis Decision: {ai_action} | Reason: {decision.get('reasoning')}")
@@ -531,10 +539,11 @@ def main():
                     response_format={"type": "json_object"}
                 )
                 
-                response_content = response.choices[0].message.content.strip()
-                decision = json.loads(response_content)
+                decision = parse_ai_response(response.choices[0].message.content)
+                action = decision.get('direction', 'NO_POSITION').lower()
                 
                 action = decision.get('direction', 'NO_POSITION').lower()
+
                 reasoning = decision.get('reasoning', 'No specific reason provided.')
                 print(f"AI Decision: {action.upper()} | Reason: {reasoning}")
 
