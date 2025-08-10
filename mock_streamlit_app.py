@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import os
+import subprocess
 from datetime import datetime
 from dotenv import load_dotenv
 from streamlit_autorefresh import st_autorefresh
