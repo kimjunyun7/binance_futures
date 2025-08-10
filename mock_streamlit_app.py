@@ -243,6 +243,34 @@ def render_prompt_page():
                 st.session_state['delete_confirm_id'] = None
                 st.rerun()
 
+def render_log_viewer_page():
+    """실시간 로그 뷰어 페이지를 그립니다."""
+    st.title("📜 실시간 로그 뷰어")
+
+    # selectbox를 사용하여 어떤 로그를 볼지 선택
+    log_choice = st.selectbox("확인할 로그를 선택하세요:", ("자동매매 봇 (tradingbot)", "웹 대시보드 (dashboard)"))
+    
+    service_name = "tradingbot" if "자동매매 봇" in log_choice else "dashboard"
+
+    log_lines = st.number_input("가져올 최근 로그 줄 수:", min_value=10, max_value=1000, value=100, step=10)
+
+    try:
+        # journalctl 명령어를 실행하여 로그를 가져옴
+        # --no-pager 옵션은 출력이 잘리지 않도록 함
+        command = f"sudo journalctl -u {service_name} -n {log_lines} --no-pager"
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            log_content = result.stdout
+            st.text_area("Log Output", log_content, height=500, key="log_output_area")
+        else:
+            st.error(f"로그를 가져오는 데 실패했습니다:\n{result.stderr}")
+
+    except Exception as e:
+        st.error(f"로그 조회 중 예외가 발생했습니다: {e}")
+    
+    st_autorefresh(interval=3000, key="log_refresher") # 로그 페이지는 3초마다 새로고침
+
 # --- 4. 메인 실행 로직 ---
 
 setup_files_and_db()
@@ -278,7 +306,7 @@ if not st.session_state['logged_in']:
 else:
     with st.sidebar:
         st.header("메뉴")
-        page = st.radio("페이지 선택", ["대시보드", "프롬프트 관리"], label_visibility="collapsed")
+        page = st.radio("페이지 선택", ["대시보드", "프롬프트 관리", "실시간 로그"], label_visibility="collapsed")
         st.markdown("---")
         with st.expander("⚙️ 설정"):
             with st.form("password_change_form", clear_on_submit=True):
@@ -302,3 +330,5 @@ else:
         render_dashboard_page()
     elif page == "프롬프트 관리":
         render_prompt_page()
+    elif page == "실시간 로그":
+        render_log_viewer_page()

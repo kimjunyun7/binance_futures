@@ -25,9 +25,12 @@ from datetime import datetime
 # from prompts import SYSTEM_PROMPT
 ACTIVE_PROMPT_FILE = "/home/ubuntu/binance_futures/active_prompt.txt"
 
+print("--- CHECKPOINT 1: 모든 라이브러리 임포트 완료 ---") # <-- 추가
+
 # ===== 설정 및 초기화 =====
 load_dotenv()
 
+print("--- CHECKPOINT 2: 바이낸스 연결 시도 직전 ---") # <-- 추가
 # Binance API (Public data only)
 exchange = ccxt.binance({
     'enableRateLimit': True,
@@ -36,6 +39,7 @@ exchange = ccxt.binance({
         'adjustForTimeDifference': True
     }
 })
+print("--- CHECKPOINT 3: 바이낸스 연결 성공 ---") # <-- 추가
 symbol = "BTC/USDT"
 
 # OpenAI API
@@ -311,6 +315,7 @@ def fetch_bitcoin_news():
 
 # ===== 메인 모의 트레이딩 루프 =====
 def main():
+    print("--- CHECKPOINT 4: main() 함수 진입 ---") # <-- 추가
     print("\n" + "="*15 + " MOCK TRADING BOT STARTED " + "="*15)
     setup_database()
 
