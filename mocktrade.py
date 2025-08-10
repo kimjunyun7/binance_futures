@@ -104,6 +104,20 @@ def setup_database():
         FOREIGN KEY (trade_id) REFERENCES mock_trades (id)
     )''')
 
+    # AI의 현 포지션 조정 기록 테이블
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS trade_adjustments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trade_id INTEGER NOT NULL,
+        timestamp TEXT NOT NULL,
+        action TEXT NOT NULL,
+        new_tp_price REAL,
+        new_sl_price REAL,
+        reasoning TEXT,
+        FOREIGN KEY (trade_id) REFERENCES mock_trades (id)
+    )
+    ''')
+
     conn.commit()
     conn.close()
     print("모의 투자 데이터베이스 설정 완료.")
@@ -408,6 +422,37 @@ def main():
                     ai_action = decision.get('action', 'HOLD')
                     
                     print(f"AI Re-Analysis Decision: {ai_action} | Reason: {decision.get('reasoning')}")
+                    # AI 판단 기록을 DB에 저장
+                    if ai_action == "CLOSE" or ai_action == "ADJUST":
+                        new_tp_price_val = decision.get('new_tp_percentage')
+                        new_sl_price_val = decision.get('new_sl_percentage')
+
+                        # new_tp_price와 new_sl_price 계산 (ADJUST 시에만)
+                        if ai_action == "ADJUST" and new_tp_price_val is not None and new_sl_price_val is not None:
+                            if open_trade['action'] == 'long':
+                                new_tp_price = current_price * (1 + float(new_tp_price_val))
+                                new_sl_price = current_price * (1 - float(new_sl_price_val))
+                            else: # short
+                                new_tp_price = current_price * (1 - float(new_tp_price_val))
+                                new_sl_price = current_price * (1 + float(new_sl_price_val))
+                        else:
+                            new_tp_price, new_sl_price = None, None
+                        
+                        conn = sqlite3.connect(DB_FILE)
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            INSERT INTO trade_adjustments (trade_id, timestamp, action, new_tp_price, new_sl_price, reasoning)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        """, (
+                            open_trade['id'],
+                            datetime.now().isoformat(),
+                            ai_action,
+                            new_tp_price,
+                            new_sl_price,
+                            decision.get('reasoning')
+                        ))
+                        conn.commit()
+                        conn.close()
 
                     if ai_action == "CLOSE":
                         print("AI recommends closing position. Closing now.")
@@ -417,14 +462,14 @@ def main():
                     elif ai_action == "ADJUST":
                         new_tp_pct = float(decision.get('new_tp_percentage', 0))
                         new_sl_pct = float(decision.get('new_sl_percentage', 0))
-                        
+
                         if new_tp_pct > 0 and new_sl_pct > 0:
                             # 현재 가격 기준으로 새로운 TP/SL 계산
                             if open_trade['action'] == 'long':
                                 new_tp_price = current_price * (1 + new_tp_pct)
                                 new_sl_price = current_price * (1 - new_sl_pct)
                             else: # short
-                                new_tp_price = current_price * (1 - new_tp_pct)
+                                new_tp_price = current_price * (1 - new_sl_pct)
                                 new_sl_price = current_price * (1 + new_sl_pct)
                             
                             # DB에 새로운 TP/SL 업데이트

@@ -96,6 +96,7 @@ def toggle_favorite(prompt_id, current_status):
     conn.close()
     st.rerun()
 
+
 def delete_prompt(prompt_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -103,8 +104,9 @@ def delete_prompt(prompt_id):
     conn.commit()
     conn.close()
 
+
 def fetch_data():
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     try:
         total_pnl = pd.read_sql_query("SELECT SUM(profit_loss) as total_pnl FROM mock_trades WHERE status = 'CLOSED'", conn).iloc[0]['total_pnl'] or 0
@@ -113,22 +115,31 @@ def fetch_data():
         open_trade_df = pd.read_sql_query("SELECT * FROM mock_trades WHERE status = 'OPEN' ORDER BY timestamp DESC LIMIT 1", conn)
         trade_history_df = pd.read_sql_query("SELECT * FROM mock_trades WHERE status = 'CLOSED' ORDER BY exit_timestamp DESC LIMIT 20", conn)
         ai_log_df = pd.read_sql_query("SELECT * FROM mock_ai_analysis ORDER BY timestamp DESC LIMIT 20", conn)
+        
         total_trades = len(closed_trades_df)
         winning_trades = len(closed_trades_df[closed_trades_df['profit_loss'] > 0])
         win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
-    except Exception:
-        # DB가 비어있을 때를 대비한 기본값 설정
+        
+        # 현재 열려있는 거래의 조정 기록 조회
+        adjustment_history_df = pd.DataFrame()
+        if not open_trade_df.empty:
+            open_trade_id = open_trade_df.iloc[0]['id']
+            adjustment_history_df = pd.read_sql_query(f"SELECT * FROM trade_adjustments WHERE trade_id = {open_trade_id} ORDER BY timestamp DESC", conn)
+
+    except (pd.errors.DatabaseError, IndexError, KeyError):
+        # DB가 비어있거나 테이블이 없을 때를 대비한 기본값 설정
         return {
             "wallet_balance": 10000, "total_pnl": 0, "win_rate": 0, "total_trades": 0,
-            "open_trade": pd.DataFrame(), "trade_history": pd.DataFrame(), "ai_log": pd.DataFrame()
+            "winning_trades": 0, "open_trade": pd.DataFrame(), "trade_history": pd.DataFrame(), 
+            "ai_log": pd.DataFrame(), "adjustment_history": pd.DataFrame()
         }
     finally:
         conn.close()
     
     return {
         "wallet_balance": wallet_balance, "total_pnl": total_pnl, "win_rate": win_rate,
-        "total_trades": total_trades, "open_trade": open_trade_df,
-        "trade_history": trade_history_df, "ai_log": ai_log_df
+        "total_trades": total_trades, "winning_trades": winning_trades, "open_trade": open_trade_df,
+        "trade_history": trade_history_df, "ai_log": ai_log_df, "adjustment_history": adjustment_history_df
     }
 
 # --- 3. UI 페이지 렌더링 함수 ---
@@ -266,6 +277,30 @@ def render_dashboard_page():
         """, unsafe_allow_html=True)
     else:
         st.info("현재 진행 중인 포지션이 없습니다.")
+
+    # --- AI의 현 포지션 관리 기록 섹션 ---
+        if not data['adjustment_history'].empty:
+            st.markdown('<p class="position-label" style="margin-top: 15px; margin-bottom: 5px; font-size: 0.8em;">AI 포지션 관리 기록</p>', unsafe_allow_html=True)
+            for _, row in data['adjustment_history'].iterrows():
+                log_time = datetime.fromisoformat(row['timestamp']).strftime('%y-%m-%d %H:%M')
+                action_text = row['action']
+                
+                if action_text == 'ADJUST':
+                    details = f"TP ${row['new_tp_price']:,.2f} / SL ${row['new_sl_price']:,.2f}로 조정 권고"
+                elif action_text == 'CLOSE':
+                    details = "포지션 즉시 종료 권고"
+                else:
+                    details = "포지션 유지 (HOLD) 권고"
+
+                st.markdown(f"""
+                <div class="position-row" style="font-size: 0.85em; border-top: 1px solid #333; padding-top: 8px; margin-bottom: 5px;">
+                    <span class="position-label">{log_time}</span>
+                    <span class="position-value">{details}</span>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("현재 진행 중인 포지션이 없습니다.")
+        
 
     # --- 거래 내역 및 AI 로그 ---
     col1, col2 = st.columns(2)
