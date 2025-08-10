@@ -385,19 +385,17 @@ def main():
                 # 10분 간격 설정 (timedelta(minutes=10))
                 re_analysis_interval = timedelta(minutes=0.3) 
                 
-                if last_in_position_analysis is None or (datetime.now() - last_in_position_analysis) > re_analysis_interval:
+                
+                if not is_closed and (last_in_position_analysis is None or (datetime.now() - last_in_position_analysis) > re_analysis_interval):
                     print("\n" + "="*10 + " Performing In-Position Re-Analysis " + "="*10)
                     
-                    # AI에게 보낼 현재 포지션 상태 계산
                     margin = (open_trade['entry_price'] * open_trade['amount']) / open_trade['leverage']
                     pnl = (current_price - open_trade['entry_price']) * open_trade['amount'] if open_trade['action'] == 'long' else (open_trade['entry_price'] - current_price) * open_trade['amount']
                     pnl_percent = (pnl / margin) * 100 if margin > 0 else 0
                     
-                    # AI 분석 요청
                     market_data = fetch_multi_timeframe_data()
                     news_data = fetch_bitcoin_news()
                     
-                    # 새로운 프롬프트 포맷팅
                     prompt_for_update = SYSTEM_PROMPT_UPDATE.format(
                         side=open_trade['action'].upper(),
                         entry_price=open_trade['entry_price'],
@@ -405,11 +403,11 @@ def main():
                         pnl_percentage=f"{pnl_percent:.2f}"
                     )
                     
-                    analysis_input_update = {
-                        "timeframes": {tf: df.to_dict(orient="records") for tf, df in market_data.items()},
-                        "recent_news": news_data
-                    }
-                    
+                    analysis_input_update = { "timeframes": {}, "recent_news": news_data }
+                    if market_data:
+                        for tf, df in market_data.items():
+                            analysis_input_update["timeframes"][tf] = df.to_dict(orient="records")
+
                     response = client.chat.completions.create(
                         model="gpt-4o",
                         messages=[
@@ -418,14 +416,15 @@ def main():
                         ],
                         response_format={"type": "json_object"}
                     )
-
-                    # AI의 재분석 결과 처리
+                    
+                    # .strip() 추가하여 JSON 파싱 오류 방지
                     response_content = response.choices[0].message.content.strip()
                     decision = json.loads(response_content)
-
                     ai_action = decision.get('action', 'HOLD')
                     
                     print(f"AI Re-Analysis Decision: {ai_action} | Reason: {decision.get('reasoning')}")
+
+
                     # AI 판단 기록을 DB에 저장
                     if ai_action == "CLOSE" or ai_action == "ADJUST":
                         new_tp_price_val = decision.get('new_tp_percentage')
@@ -532,7 +531,7 @@ def main():
                     response_format={"type": "json_object"}
                 )
                 
-                response_content = response.choices[0].message.content
+                response_content = response.choices[0].message.content.strip()
                 decision = json.loads(response_content)
                 
                 action = decision.get('direction', 'NO_POSITION').lower()
