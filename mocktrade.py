@@ -189,14 +189,16 @@ def close_mock_trade(trade_id, exit_price):
         conn.close()
         return
 
-    # --- 손익 계산 수정 ---
-    # amount 자체가 레버리지가 적용된 포지션 크기이므로, 레버리지를 추가로 곱하지 않습니다.
-    if trade['action'] == 'long':
-        profit_loss = (exit_price - trade['entry_price']) * trade['amount']
-    else: # 'short'
-        profit_loss = (trade['entry_price'] - exit_price) * trade['amount']
+    # 정확한 손익 계산
+    position_value = trade['entry_price'] * trade['amount']  # 포지션 가치
+    margin_used = position_value / trade['leverage']  # 실제 사용 증거금
     
-    investment_margin = (trade['entry_price'] * trade['amount']) / trade['leverage']
+    if trade['action'] == 'long':
+        price_change_pct = (exit_price - trade['entry_price']) / trade['entry_price']
+    else:  # short
+        price_change_pct = (trade['entry_price'] - exit_price) / trade['entry_price']
+    
+    profit_loss = margin_used * price_change_pct * trade['leverage']
     
     # DB 업데이트
     cursor.execute('''
@@ -466,7 +468,7 @@ def main():
                     print("AI recommends NO POSITION. Waiting for the next opportunity.")
             
             # 포지션이 있으면 10초, 없으면 60초(1분) 대기
-            sleep_time = 3600 if open_trade else 60
+            sleep_time = 10 if open_trade else 60
             print(f"Waiting for {sleep_time} seconds...")
             time.sleep(sleep_time)
 
