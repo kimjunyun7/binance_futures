@@ -190,6 +190,8 @@ def get_open_trade():
     conn.close()
     return dict(trade) if trade else None
 
+# mocktrade.py의 close_mock_trade 함수
+
 def close_mock_trade(trade_id, exit_price):
     """가상 거래를 종료하고 손익을 계산하여 DB를 업데이트합니다."""
     conn = sqlite3.connect(DB_FILE)
@@ -202,16 +204,14 @@ def close_mock_trade(trade_id, exit_price):
         conn.close()
         return
 
-    # 정확한 손익 계산
-    position_value = trade['entry_price'] * trade['amount']  # 포지션 가치
-    margin_used = position_value / trade['leverage']  # 실제 사용 증거금
-    
+    # 실제 투자 원금(margin) 계산
+    investment_margin = (trade['entry_price'] * trade['amount']) / trade['leverage']
+
+    # 손익(PNL) 계산
     if trade['action'] == 'long':
-        price_change_pct = (exit_price - trade['entry_price']) / trade['entry_price']
+        profit_loss = (exit_price - trade['entry_price']) * trade['amount']
     else:  # short
-        price_change_pct = (trade['entry_price'] - exit_price) / trade['entry_price']
-    
-    profit_loss = margin_used * price_change_pct * trade['leverage']
+        profit_loss = (trade['entry_price'] - exit_price) * trade['amount']
     
     # DB 업데이트
     cursor.execute('''
@@ -221,7 +221,7 @@ def close_mock_trade(trade_id, exit_price):
     ''', (exit_price, datetime.now().isoformat(), profit_loss, trade_id))
     
     conn.commit()
-    conn.close() # DB 연결을 먼저 닫습니다.
+    conn.close()
 
     # 지갑 잔고 업데이트
     current_balance = get_wallet_balance()
