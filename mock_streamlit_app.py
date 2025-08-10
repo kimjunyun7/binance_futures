@@ -279,28 +279,28 @@ def render_dashboard_page():
         st.info("현재 진행 중인 포지션이 없습니다.")
 
     # --- AI의 현 포지션 관리 기록 섹션 ---
-        if not data['adjustment_history'].empty:
-            st.markdown('<p class="position-label" style="margin-top: 15px; margin-bottom: 5px; font-size: 0.8em;">AI 포지션 관리 기록</p>', unsafe_allow_html=True)
-            for _, row in data['adjustment_history'].iterrows():
-                log_time = datetime.fromisoformat(row['timestamp']).strftime('%y-%m-%d %H:%M')
-                action_text = row['action']
-                
-                if action_text == 'ADJUST':
-                    details = f"TP ${row['new_tp_price']:,.2f} / SL ${row['new_sl_price']:,.2f}로 조정 권고"
-                elif action_text == 'CLOSE':
-                    details = "포지션 즉시 종료 권고"
-                else:
-                    details = "포지션 유지 (HOLD) 권고"
+    if not data['adjustment_history'].empty:
+        st.markdown('<p class="position-label" style="margin-top: 15px; margin-bottom: 5px; font-size: 0.8em;">AI 포지션 관리 기록</p>', unsafe_allow_html=True)
+        for _, row in data['adjustment_history'].iterrows():
+            log_time = datetime.fromisoformat(row['timestamp']).strftime('%y-%m-%d %H:%M')
+            action_text = row['action']
+            
+            if action_text == 'ADJUST':
+                details = f"TP ${row['new_tp_price']:,.2f} / SL ${row['new_sl_price']:,.2f}로 조정 권고"
+            elif action_text == 'CLOSE':
+                details = "포지션 즉시 종료 권고"
+            else:
+                details = "포지션 유지 (HOLD) 권고"
 
-                st.markdown(f"""
-                <div class="position-row" style="font-size: 0.85em; border-top: 1px solid #333; padding-top: 8px; margin-bottom: 5px;">
-                    <span class="position-label">{log_time}</span>
-                    <span class="position-value">{details}</span>
-                </div>
-                """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="position-row" style="font-size: 0.85em; border-top: 1px solid #333; padding-top: 8px; margin-bottom: 5px;">
+                <span class="position-label">{log_time}</span>
+                <span class="position-value">{details}</span>
+            </div>
+            """, unsafe_allow_html=True)
     else:
         st.info("현재 진행 중인 포지션이 없습니다.")
-        
+
 
     # --- 거래 내역 및 AI 로그 ---
     col1, col2 = st.columns(2)
