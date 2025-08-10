@@ -143,27 +143,62 @@ def render_dashboard_page():
     if not data['open_trade'].empty:
         trade = data['open_trade'].iloc[0]
         
-        # st.metric을 사용해 5개 컬럼에 정보를 깔끔하게 표시
-        cols = st.columns(5)
-        
-        # 1. 포지션 방향
-        cols[0].metric(label="포지션", value=trade['action'].upper())
-        
-        # 2. 진입 가격
-        cols[1].metric(label="진입 가격 (USDT)", value=f"{trade['entry_price']:,.2f}")
-        
-        # 3. 포지션 크기 (BTC)
-        cols[2].metric(label="수량 (BTC)", value=f"{trade['amount']:.4f}")
-        
-        # 4. 손절 가격
-        cols[3].metric(label="손절가 (USDT)", value=f"{trade['sl_price']:,.2f}", 
-                    delta=f"{(trade['sl_price'] / trade['entry_price'] - 1) * 100:.2f}%", 
-                    delta_color="inverse")
+        # CSS 스타일을 정의하여 글자 크기와 간격을 조절합니다.
+        st.markdown("""
+        <style>
+        .position-box {
+            border: 1px solid #e6e6e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .position-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .position-label {
+            color: #888;
+            font-size: 0.9em;
+        }
+        .position-value {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .long { color: #26A69A; }
+        .short { color: #EF5350; }
+        </style>
+        """, unsafe_allow_html=True)
 
-        # 5. 익절 가격
-        cols[4].metric(label="익절가 (USDT)", value=f"{trade['tp_price']:,.2f}",
-                    delta=f"{(trade['tp_price'] / trade['entry_price'] - 1) * 100:.2f}%",
-                    delta_color="normal")
+        # 포지션 방향에 따라 색상 클래스 지정
+        pos_color_class = "long" if trade['action'] == 'long' else "short"
+        
+        # HTML을 사용하여 정보 박스를 만듭니다.
+        st.markdown(f"""
+        <div class="position-box">
+            <div class="position-row">
+                <span class="position-label">포지션</span>
+                <span class="position-value {pos_color_class}">{trade['action'].upper()}</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">진입 가격 (USDT)</span>
+                <span class="position-value">{trade['entry_price']:,.2f}</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">수량 (BTC)</span>
+                <span class="position-value">{trade['amount']:.4f}</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">손절가 (USDT)</span>
+                <span class="position-value">{trade['sl_price']:,.2f}</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">익절가 (USDT)</span>
+                <span class="position-value">{trade['tp_price']:,.2f}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
     else:
         st.info("현재 진행 중인 포지션이 없습니다.")
     st.markdown("---")
