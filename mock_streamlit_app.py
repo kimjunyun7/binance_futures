@@ -169,14 +169,24 @@ def render_dashboard_page():
                     formatted_time = log_time.strftime('%Y-%m-%d %H:%M')
                 except (ValueError, TypeError):
                     formatted_time = row['timestamp']
-                expander_title = f"""
-                <div style="font-size: 1.1em; line-height: 1.4;">
-                    {formatted_time}<br>
-                    <strong style="font-size: 1.2em;">{row['direction']}</strong>
-                </div>
-                """
-                with st.expander(expander_title, expanded=False):
-                    st.markdown(f"<div style='height: 6em; overflow-y: auto; border: 1px solid #e6e6e6; padding: 10px; border-radius: 5px;'>{row['reasoning']}</div>", unsafe_allow_html=True)
+
+                # 1. expander에는 간단한 텍스트 라벨을 사용합니다.
+                expander_label = f"{formatted_time} | 추천: {row['direction']}"
+
+                with st.expander(expander_label, expanded=False):
+                    # 2. HTML 형식의 제목과 분석 근거를 expander 내부에 그립니다.
+                    st.markdown(
+                        f"""
+                        <div style="font-size: 1.1em; line-height: 1.4; margin-bottom: 10px;">
+                            {formatted_time}<br>
+                            <strong style="font-size: 1.2em;">{row['direction']}</strong>
+                        </div>
+                        <div style="height: 6em; overflow-y: auto; border: 1px solid #e6e6e6; padding: 10px; border-radius: 5px;">
+                            {row['reasoning']}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
         else:
             st.info("AI 분석 로그가 없습니다.")
 
