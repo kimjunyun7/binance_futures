@@ -268,7 +268,7 @@ def render_dashboard_page():
                 <span class="position-label">수량 (BTC)</span>
                 <span class="position-value">{trade['amount']:.4f}</span>
             </div>
-            <div class="position-row" style="margin-bottom: 10px;">
+            <div class="position-row" style="margin-bottom: 20px;">
                 <span class="position-label">투자 원금 (USDT)</span>
                 <span class="position-value">{margin:,.2f}</span>
             </div>
