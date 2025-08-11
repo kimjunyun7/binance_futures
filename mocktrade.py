@@ -431,8 +431,8 @@ def main():
                         is_closed = True
                 
                 # --- B. 10분마다 재분석하여 TP/SL 업데이트 ---
-                # 10분 간격 설정 (timedelta(minutes=10))
-                re_analysis_interval = timedelta(minutes=120) 
+                # 대기시간 간격 설정
+                re_analysis_interval = timedelta(hours=2) 
                 
                 
                 if not is_closed and (last_in_position_analysis is None or (datetime.now() - last_in_position_analysis) > re_analysis_interval):
@@ -633,7 +633,7 @@ def main():
                 else: # NO_POSITION
                     print("AI recommends NO POSITION. Waiting for the next opportunity.")
             
-             # 대기 시간: 포지션 있으면 1분, 없으면 1분, 3600 = 1h
+             # 대기 시간: 포지션 있으면 @초, 없으면 @초, 3600 = 1h, 600 = 10m
             sleep_time = 600 if open_trade else 3600
             print(f"Waiting for {sleep_time} seconds...")
             time.sleep(sleep_time)
