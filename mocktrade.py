@@ -344,22 +344,49 @@ def parse_ai_response(response_content):
     AI의 응답을 안전하게 파싱하고, 실패 시 원본 내용을 로그로 남깁니다.
     """
     try:
+
         # 1. 앞뒤 공백과 줄바꿈을 모두 제거합니다.
         cleaned_content = response_content.strip()
         
+        # 디버깅: 응답 내용 출력
+        print(f"[DEBUG] AI Response Length: {len(cleaned_content)}")
+        print(f"[DEBUG] First 100 chars: {cleaned_content[:100]}")
+        
         # 2. JSON 파싱을 시도합니다.
-        return json.loads(cleaned_content)
+        result = json.loads(cleaned_content)
+        print(f"[DEBUG] Successfully parsed JSON: action={result.get('action')}")
+        return result
         
     except json.JSONDecodeError as e:
         # 3. 파싱 실패 시, 문제가 된 원본 내용을 정확히 로그에 남깁니다.
         print("="*20 + " JSON PARSE ERROR " + "="*20)
         print(f"Error: {e}")
-        print("--- Original AI Response ---")
+        print(f"Error Position: {e.pos if hasattr(e, 'pos') else 'unknown'}")
+        print("--- Original AI Response (repr) ---")
+        print(repr(response_content))
+        print("--- Original AI Response (raw) ---")
         print(response_content)
         print("="*58)
         
         # 4. 봇이 멈추지 않도록 안전한 기본값을 반환합니다.
         return {"action": "HOLD", "reasoning": "AI response parsing failed."}
+        
+    #     # 1. 앞뒤 공백과 줄바꿈을 모두 제거합니다.
+    #     cleaned_content = response_content.strip()
+        
+    #     # 2. JSON 파싱을 시도합니다.
+    #     return json.loads(cleaned_content)
+        
+    # except json.JSONDecodeError as e:
+    #     # 3. 파싱 실패 시, 문제가 된 원본 내용을 정확히 로그에 남깁니다.
+    #     print("="*20 + " JSON PARSE ERROR " + "="*20)
+    #     print(f"Error: {e}")
+    #     print("--- Original AI Response ---")
+    #     print(response_content)
+    #     print("="*58)
+        
+    #     # 4. 봇이 멈추지 않도록 안전한 기본값을 반환합니다.
+    #     return {"action": "HOLD", "reasoning": "AI response parsing failed."}
 
 # ===== 메인 모의 트레이딩 루프 =====
 def main():
