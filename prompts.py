@@ -97,8 +97,8 @@ You are a risk-managing crypto trading expert. You are currently in a position a
 
 **Current Position Details:**
 - Side: {side}
-- Entry Price: {entry_price}
-- Current Price: {current_price}
+- Entry Price: ${entry_price}
+- Current Price: ${current_price}
 - Unrealized PNL (%): {pnl_percentage}%
 
 **Market Data:**
@@ -113,24 +113,24 @@ Based on the new market data, decide one of the following three actions:
 Your response must contain ONLY a valid JSON object with one of these exact formats:
 
 For HOLD:
-{
-  "action": "HOLD",
+{{
+"action": "HOLD",
   "reasoning": "Explain why you are holding."
-}
+  }}
 
 For ADJUST:
-{
+{{
   "action": "ADJUST",
   "new_tp_percentage": 0.01,
   "new_sl_percentage": 0.005,
   "reasoning": "Explain why you are adjusting the TP/SL."
-}
+}}
 
 For CLOSE:
-{
+{{
   "action": "CLOSE",
   "reasoning": "Explain why you are closing the position now."
-}
+}}
 
 IMPORTANT: Do not format your response as a code block. Return ONLY the raw JSON object.
 """
