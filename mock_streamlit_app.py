@@ -272,7 +272,10 @@ def render_dashboard_page():
                 <span class="position-label">투자 원금 (USDT)</span>
                 <span class="position-value">{margin:,.2f}</span>
             </div>
-            <hr>
+            
+            <div class="position-row" style="margin-bottom: 10px;">
+            </div>
+
             <div class="position-row">
                 <span class="position-label">진입 가격 (USDT)</span>
                 <span class="position-value">{trade['entry_price']:,.2f}</span>
