@@ -160,27 +160,34 @@ def render_dashboard_page():
     st.markdown("""
     <style>
     /* KPI 메트릭 스타일 */
+
+    /* Streamlit 메인 컨테이너 상단 여백 제거 */
+    .block-container {
+        padding-top: 1rem !important;
+    }
+
     .kpi-container {
         display: flex;
         justify-content: space-around;
-        gap: 10px;
+        gap: 8px;
         margin-bottom: 20px;
     }
     .kpi-box {
         border: 1px solid #333;
         border-radius: 8px;
-        padding: 10px 15px;
+        padding: 8px 12px;
         text-align: center;
         flex-grow: 1;
     }
     .kpi-label {
-        font-size: 0.8em;
+        font-size: 0.75em;
         color: #888;
-        margin-bottom: 5px;
+        margin-bottom: 2px;
     }
     .kpi-value {
-        font-size: 1.3em;
+        font-size: 1.1em;
         font-weight: 600;
+        white-space: nowrap;
     }
 
     /* 현재 포지션 박스 스타일 */
@@ -265,9 +272,14 @@ def render_dashboard_page():
                 <span class="position-label">투자 원금 (USDT)</span>
                 <span class="position-value">{margin:,.2f}</span>
             </div>
+            <hr>
             <div class="position-row">
                 <span class="position-label">진입 가격 (USDT)</span>
                 <span class="position-value">{trade['entry_price']:,.2f}</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">현재 가격 (USDT)</span>
+                <span class="position-value">{current_price:,.2f}</span>
             </div>
             <div class="position-row">
                 <span class="position-label">미실현 손익 (USDT)</span>
