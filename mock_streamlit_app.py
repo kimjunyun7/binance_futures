@@ -268,7 +268,7 @@ def render_dashboard_page():
                 <span class="position-label">수량 (BTC)</span>
                 <span class="position-value">{trade['amount']:.4f}</span>
             </div>
-            <div class="position-row" style="margin-bottom: 20px;">
+            <div class="position-row" style="margin-bottom: 30px;">
                 <span class="position-label">투자 원금 (USDT)</span>
                 <span class="position-value">{margin:,.2f}</span>
             </div>
@@ -293,28 +293,38 @@ def render_dashboard_page():
     else:
         st.info("현재 진행 중인 포지션이 없습니다.")
 
-    # --- AI의 현 포지션 관리 기록 섹션 ---
-    if not data['adjustment_history'].empty:
-        st.markdown('<p class="position-label" style="margin-top: 15px; margin-bottom: 5px; font-size: 0.8em;">AI 포지션 관리 기록</p>', unsafe_allow_html=True)
-        for _, row in data['adjustment_history'].iterrows():
-            log_time = datetime.fromisoformat(row['timestamp']).strftime('%y-%m-%d %H:%M')
-            action_text = row['action']
+    # --- AI 포지션 관리 기록 섹션 추가 ---
+        if not data['adjustment_history'].empty:
+            st.markdown('<p class="position-label" style="margin-top: 15px; margin-bottom: 5px; font-size: 0.8em;">AI 포지션 관리 기록</p>', unsafe_allow_html=True)
             
-            if action_text == 'ADJUST':
-                details = f"TP ${row['new_tp_price']:,.2f} / SL ${row['new_sl_price']:,.2f}로 조정 권고"
-            elif action_text == 'CLOSE':
-                details = "포지션 즉시 종료 권고"
-            else:
-                details = "포지션 유지 (HOLD) 권고"
+            # 스크롤 가능한 div로 전체 기록을 감쌉니다.
+            st.markdown('<div style="max-height: 12em; overflow-y: auto; border: 1px solid #333; border-radius: 5px; padding: 10px;">', unsafe_allow_html=True)
+            
+            for _, row in data['adjustment_history'].iterrows():
+                log_time = datetime.fromisoformat(row['timestamp']).strftime('%y-%m-%d %H:%M')
+                action_text = row['action']
+                
+                if action_text == 'ADJUST':
+                    # new_tp_price와 new_sl_price가 None이 아닌지 확인
+                    tp_price_str = f"${row['new_tp_price']:,.2f}" if row['new_tp_price'] is not None else "N/A"
+                    sl_price_str = f"${row['new_sl_price']:,.2f}" if row['new_sl_price'] is not None else "N/A"
+                    details = f"TP {tp_price_str} / SL {sl_price_str}로 조정 권고"
+                elif action_text == 'CLOSE':
+                    details = "포지션 즉시 종료 권고"
+                else:
+                    details = "포지션 유지 (HOLD) 권고"
 
-            st.markdown(f"""
-            <div class="position-row" style="font-size: 0.85em; border-top: 1px solid #333; padding-top: 8px; margin-bottom: 5px;">
-                <span class="position-label">{log_time}</span>
-                <span class="position-value">{details}</span>
-            </div>
-            """, unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="position-row" style="font-size: 0.85em; padding-top: 8px; margin-bottom: 5px;">
+                    <span class="position-label">{log_time}</span>
+                    <span class="position-value">{details}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
     else:
-        st.info("현재 포지션에 추가적인 의견이 없습니다.")
+        st.info("현재 진행 중인 포지션이 없습니다.")
 
 
     # --- 거래 내역 및 AI 로그 ---
