@@ -370,7 +370,7 @@ def parse_ai_response(response_content):
         
         # 4. 봇이 멈추지 않도록 안전한 기본값을 반환합니다.
         return {"action": "HOLD", "reasoning": "AI response parsing failed."}
-        
+
     #     # 1. 앞뒤 공백과 줄바꿈을 모두 제거합니다.
     #     cleaned_content = response_content.strip()
         
@@ -432,7 +432,7 @@ def main():
                 
                 # --- B. 10분마다 재분석하여 TP/SL 업데이트 ---
                 # 10분 간격 설정 (timedelta(minutes=10))
-                re_analysis_interval = timedelta(minutes=0.3) 
+                re_analysis_interval = timedelta(minutes=120) 
                 
                 
                 if not is_closed and (last_in_position_analysis is None or (datetime.now() - last_in_position_analysis) > re_analysis_interval):
@@ -633,8 +633,8 @@ def main():
                 else: # NO_POSITION
                     print("AI recommends NO POSITION. Waiting for the next opportunity.")
             
-             # 대기 시간: 포지션 있으면 1분, 없으면 1분
-            sleep_time = 60
+             # 대기 시간: 포지션 있으면 1분, 없으면 1분, 3600 = 1h
+            sleep_time = 600 if open_trade else 3600
             print(f"Waiting for {sleep_time} seconds...")
             time.sleep(sleep_time)
 
