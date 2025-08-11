@@ -121,8 +121,8 @@ For HOLD:
 For ADJUST:
 {
   "action": "ADJUST",
-  "new_tp_percentage": [percentage distance from CURRENT price, e.g., 0.01 for 1%],
-  "new_sl_percentage": [percentage distance from CURRENT price, e.g., 0.005 for 0.5%],
+  "new_tp_percentage": 0.01,
+  "new_sl_percentage": 0.005,
   "reasoning": "Explain why you are adjusting the TP/SL."
 }
 
