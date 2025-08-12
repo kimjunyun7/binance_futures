@@ -30,8 +30,8 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 def setup_files_and_db():
     """실행에 필요한 파일과 DB 테이블을 준비합니다."""
     # 비밀번호 파일 생성
-    if not os.path.exists(PASSWORD_FILE):
-        with open(PASSWORD_FILE, "w") as f: f.write("admin123")
+    # if not os.path.exists(PASSWORD_FILE):
+    #     with open(PASSWORD_FILE, "w") as f: f.write("admin123")
     
     # DB 테이블 생성
     conn = sqlite3.connect(DB_FILE)
@@ -60,6 +60,13 @@ def setup_files_and_db():
 
     conn.commit()
     conn.close()
+
+# def get_password():
+#     with open(PASSWORD_FILE, "r") as f: return f.read().strip()
+
+# def set_password(new_password):
+#     with open(PASSWORD_FILE, "w") as f: f.write(new_password)
+
 
 def get_active_prompt():
     with open(ACTIVE_PROMPT_FILE, "r") as f: return f.read()
@@ -364,6 +371,7 @@ def render_dashboard_page():
 def render_prompt_page():
     st.title("⚙️ 프롬프트 관리")
     st.subheader("📝 현재 활성 프롬프트")
+
     current_prompt = get_active_prompt()
     new_prompt = st.text_area("프롬프트 내용", value=current_prompt, height=400, label_visibility="collapsed")
     
