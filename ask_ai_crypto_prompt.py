@@ -15,7 +15,7 @@ Your response must contain ONLY a valid JSON object with the following 6 fields:
 - "leverage": A recommended leverage multiplier (e.g., "5x", "10x").
 - "tp_sl": A recommended Take Profit and Stop Loss price, formatted as "TP: [price] / SL: [price]" (string).
 - "market_activity": A brief assessment of the current market volatility and volume (e.g., "High volatility with strong volume", "Low activity, sideways market").
-- "reasoning": A short, clear rationale for your plan, citing key data points.
+- "reasoning": A short, clear rationale for your plan, citing key data points. **Please write the reasoning in Korean.**
 
 Example Response:
 {
@@ -24,6 +24,6 @@ Example Response:
   "leverage": "10x",
   "tp_sl": "TP: 124,000 / SL: 117,500",
   "market_activity": "High volatility with increasing buy pressure in the order book.",
-  "reasoning": "The 4h chart shows a bullish breakout pattern, and the daily RSI is below 70, indicating further room for growth. Recent trades confirm strong buying momentum."
+  "reasoning": "4시간 차트에서 강세 돌파 패턴이 보이며, 일일 RSI가 70 미만으로 추가 상승 여력이 있습니다. 최근 체결 내역은 강한 매수 모멘텀을 확인시켜줍니다."
 }
 """

@@ -61,34 +61,6 @@ def get_ai_advice(data):
     daily_klines = data['klines']['1d']
     indicators = calculate_indicators(daily_klines)
     
-    # klines_summary를 만들기 전에 timestamp를 텍스트로 변환합니다.
-    klines_summary_for_json = {}
-    for tf, df in data['klines'].items():
-        # 'timestamp' 컬럼의 데이터 타입을 Timestamp에서 일반 텍스트(string)로 변경
-        df['timestamp'] = df['timestamp'].astype(str)
-        klines_summary_for_json[tf] = df.tail(5).to_dict(orient='records')
-
-    # 데이터 요약
-    prompt_data = {
-        "ticker": data['ticker'],
-        "order_book": data['order_book'],
-        "recent_trades": data['recent_trades'],
-        "klines_summary": klines_summary_for_json, # 변환된 데이터를 사용
-        "indicators": indicators
-    }
-    
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": ASK_AI_CRYPTO_PROMPT},
-            {"role": "user", "content": json.dumps(prompt_data, indent=2)}
-        ],
-        response_format={"type": "json_object"}
-    )
-    return json.loads(response.choices[0].message.content)
-    daily_klines = data['klines']['1d']
-    indicators = calculate_indicators(daily_klines)
-    
     # 데이터 요약
     prompt_data = {
         "ticker": data['ticker'],
@@ -110,6 +82,79 @@ def get_ai_advice(data):
 
 # --- UI 렌더링 함수 ---
 def render_ask_ai_page():
+    st.title("🙋 AI에게 물어보기")
+    
+    # --- 맞춤형 CSS 스타일 ---
+    st.markdown("""
+    <style>
+    .ask-ai-container {
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 20px;
+        background-color: #1a1a1a;
+    }
+    .ask-ai-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        font-size: 0.9em; /* 전체적인 폰트 크기 축소 */
+    }
+    .ask-ai-label { color: #888; }
+    .ask-ai-value { font-weight: 500; color: #DCDCDC; text-align: right; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    symbol_input = st.text_input("코인 심볼을 입력하세요 (예: BTC/USDT)", "BTC/USDT").upper()
+
+    if st.button("분석 요청", type="primary"):
+        if not check_symbol_exists(symbol_input):
+            st.error(f"{symbol_input}은(는) 바이낸스 선물 시장에 존재하지 않는 심볼입니다.")
+        else:
+            with st.spinner(f"{symbol_input}의 데이터를 수집하고 AI가 분석하는 중입니다..."):
+                try:
+                    market_data = fetch_all_data(symbol_input)
+                    ai_advice = get_ai_advice(market_data)
+                    
+                    st.subheader("🤖 AI 트레이딩 계획")
+
+                    # 맞춤형 HTML로 결과 표시
+                    st.markdown(f"""
+                    <div class="ask-ai-container">
+                        <div class="ask-ai-row">
+                            <span class="ask-ai-label">시장 활성도</span>
+                            <span class="ask-ai-value">{ai_advice.get('market_activity', 'N/A')}</span>
+                        </div>
+                        <div class="ask-ai-row">
+                            <span class="ask-ai-label">진입가</span>
+                            <span class="ask-ai-value">{ai_advice.get('entry_price', 'N/A')}</span>
+                        </div>
+                        <div class="ask-ai-row">
+                            <span class="ask-ai-label">예산</span>
+                            <span class="ask-ai-value">{ai_advice.get('budget', 'N/A')}</span>
+                        </div>
+                        <div class="ask-ai-row">
+                            <span class="ask-ai-label">레버리지</span>
+                            <span class="ask-ai-value">{ai_advice.get('leverage', 'N/A')}</span>
+                        </div>
+                        <div class="ask-ai-row">
+                            <span class="ask-ai-label">TP / SL</span>
+                            <span class="ask-ai-value">{ai_advice.get('tp_sl', 'N/A')}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # 분석 근거를 항상 보이도록 변경
+                    st.subheader("📝 분석 근거")
+                    st.info(ai_advice.get('reasoning', '분석 근거가 제공되지 않았습니다.'))
+
+                except Exception as e:
+                    st.error(f"분석 중 오류가 발생했습니다: {e}")
+
+    # 로그아웃 버튼은 페이지 하단에 배치
+    st.markdown("---")
+    if st.button("로그아웃"):
+        st.session_state['logged_in'] = False
+        st.rerun()
     st.title("AI에게 물어보기")
     
     symbol_input = st.text_input("코인 심볼을 입력하세요 (예: BTC/USDT)", "BTC/USDT").upper()
