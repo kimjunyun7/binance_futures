@@ -61,6 +61,34 @@ def get_ai_advice(data):
     daily_klines = data['klines']['1d']
     indicators = calculate_indicators(daily_klines)
     
+    # klines_summary를 만들기 전에 timestamp를 텍스트로 변환합니다.
+    klines_summary_for_json = {}
+    for tf, df in data['klines'].items():
+        # 'timestamp' 컬럼의 데이터 타입을 Timestamp에서 일반 텍스트(string)로 변경
+        df['timestamp'] = df['timestamp'].astype(str)
+        klines_summary_for_json[tf] = df.tail(5).to_dict(orient='records')
+
+    # 데이터 요약
+    prompt_data = {
+        "ticker": data['ticker'],
+        "order_book": data['order_book'],
+        "recent_trades": data['recent_trades'],
+        "klines_summary": klines_summary_for_json, # 변환된 데이터를 사용
+        "indicators": indicators
+    }
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": ASK_AI_CRYPTO_PROMPT},
+            {"role": "user", "content": json.dumps(prompt_data, indent=2)}
+        ],
+        response_format={"type": "json_object"}
+    )
+    return json.loads(response.choices[0].message.content)
+    daily_klines = data['klines']['1d']
+    indicators = calculate_indicators(daily_klines)
+    
     # 데이터 요약
     prompt_data = {
         "ticker": data['ticker'],
@@ -82,7 +110,7 @@ def get_ai_advice(data):
 
 # --- UI 렌더링 함수 ---
 def render_ask_ai_page():
-    st.title("🙋 AI에게 물어보기")
+    st.title("AI에게 물어보기")
     
     symbol_input = st.text_input("코인 심볼을 입력하세요 (예: BTC/USDT)", "BTC/USDT").upper()
 
