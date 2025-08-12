@@ -451,10 +451,13 @@ def main():
                             df['timestamp'] = df['timestamp'].astype(str)
                             analysis_input_update["timeframes"][tf] = df.to_dict(orient="records")
                     
-                    response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "system", "content": prompt_for_update}, {"role": "user", "content": json.dumps(analysis_input_update)}], response_format={"type": "json_object"})
+                    # response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "system", "content": prompt_for_update}, {"role": "user", "content": json.dumps(analysis_input_update)}], response_format={"type": "json_object"})
                     
-                    # 새로운 파싱 함수 사용
-                    decision = parse_ai_response(response.choices[0].message.content)
+                    # # 새로운 파싱 함수 사용
+                    # decision = parse_ai_response(response.choices[0].message.content)
+
+                    # API 호출을 막았으므로, 기본값으로 HOLD를 설정합니다.
+                    decision = {"action": "HOLD", "reasoning": "In-position analysis disabled."}
                     ai_action = decision.get('action', 'HOLD')
                     
                     print(f"AI Re-Analysis Decision: {ai_action} | Reason: {decision.get('reasoning')}")
@@ -557,18 +560,19 @@ def main():
                     system_prompt_content = f.read()
 
                 print("Asking AI for trading advice...")
-                response = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {"role": "system", "content": system_prompt_content},
-                        {"role": "user", "content": json.dumps(analysis_input, indent=2)}
-                    ],
-                    response_format={"type": "json_object"}
-                )
+                # response = client.chat.completions.create(
+                #     model="gpt-4o",
+                #     messages=[
+                #         {"role": "system", "content": system_prompt_content},
+                #         {"role": "user", "content": json.dumps(analysis_input, indent=2)}
+                #     ],
+                #     response_format={"type": "json_object"}
+                # )
                 
-                decision = parse_ai_response(response.choices[0].message.content)
-                action = decision.get('direction', 'NO_POSITION').lower()
+                # decision = parse_ai_response(response.choices[0].message.content)
                 
+                # API 호출을 막았으므로, 기본값으로 NO_POSITION을 설정합니다.
+                decision = {"direction": "NO_POSITION", "reasoning": "New position analysis disabled."}
                 action = decision.get('direction', 'NO_POSITION').lower()
 
                 reasoning = decision.get('reasoning', 'No specific reason provided.')
