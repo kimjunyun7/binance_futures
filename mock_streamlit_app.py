@@ -7,6 +7,7 @@ import ccxt
 from datetime import datetime
 from dotenv import load_dotenv
 from streamlit_autorefresh import st_autorefresh
+from login_page import render_login_page, initialize_password, set_password
 
 # --- 1. 설정 및 초기화 ---
 load_dotenv()
@@ -21,7 +22,6 @@ except Exception as e:
 
 # 파일 경로 및 설정
 DB_FILE = "/home/ubuntu/binance_futures/mock_trading.db"
-PASSWORD_FILE = "/home/ubuntu/binance_futures/password.txt"
 ACTIVE_PROMPT_FILE = "/home/ubuntu/binance_futures/active_prompt.txt"
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
@@ -60,12 +60,6 @@ def setup_files_and_db():
 
     conn.commit()
     conn.close()
-
-def get_password():
-    with open(PASSWORD_FILE, "r") as f: return f.read().strip()
-
-def set_password(new_password):
-    with open(PASSWORD_FILE, "w") as f: f.write(new_password)
 
 def get_active_prompt():
     with open(ACTIVE_PROMPT_FILE, "r") as f: return f.read()
@@ -453,36 +447,16 @@ def render_log_viewer_page():
 
 # --- 4. 메인 실행 로직 ---
 
+# login_page.py에서 가져온 함수로 비밀번호 파일 초기화
+initialize_password()
 setup_files_and_db()
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if not st.session_state['logged_in']:
-    st.title("🔒 로그인")
-    with st.form("login_form"):
-        password_input = st.text_input("비밀번호", type="password", label_visibility="collapsed")
-        submitted = st.form_submit_button("로그인")
-        if submitted:
-            if password_input == get_password():
-                st.session_state['logged_in'] = True
-                st.rerun()
-            else:
-                st.error("비밀번호가 틀렸습니다.")
-    with st.expander("비밀번호를 잊으셨나요?"):
-        with st.form("reset_password_form", clear_on_submit=True):
-            st.subheader("비밀번호 재설정")
-            new_pw = st.text_input("새 접속 비밀번호", type="password", key="new_pw")
-            admin_pw = st.text_input("2차 비밀번호", type="password", key="admin_pw")
-            if st.form_submit_button("재설정하기"):
-                if admin_pw == ADMIN_PASSWORD:
-                    if new_pw:
-                        set_password(new_pw)
-                        st.success("비밀번호가 재설정되었습니다. 새 비밀번호로 로그인하세요.")
-                    else:
-                        st.warning("새 비밀번호를 입력해주세요.")
-                else:
-                    st.error("2차 비밀번호가 틀렸습니다.")
+    # 로그인 페이지
+    render_login_page(ADMIN_PASSWORD)
 else:
     with st.sidebar:
         st.header("메뉴")
