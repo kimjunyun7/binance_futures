@@ -8,7 +8,7 @@ from ask_ai_crypto_prompt import ASK_AI_CRYPTO_PROMPT
 
 # --- 설정 ---
 client = OpenAI()
-exchange = cc.binance({'options': {'defaultType': 'future'}})
+exchange = ccxt.binance({'options': {'defaultType': 'future'}})
 
 # --- 백엔드 함수 ---
 @st.cache_data(ttl=60)
