@@ -26,37 +26,28 @@ def render_login_page(admin_password):
     """로그인 페이지 전체 UI를 그립니다."""
     st.title("🔒 로그인")
 
-    # st.session_state에 mode가 없으면 '자동매매'로 초기화
-    if 'mode' not in st.session_state:
-        st.session_state.mode = '자동매매'
-
     # 라디오 버튼 추가
     mode = st.radio(
         "실행할 모드를 선택하세요:",
         ('자동매매', '물어보기'),
         horizontal=True,
-        key='mode_selection'
     )
     
-    # '물어보기'를 선택하면 다른 페이지로 리디렉션 (실제로는 다른 스크립트 실행)
-    if mode == '물어보기':
-        st.info("'물어보기' 모드로 전환합니다. 해당 기능은 별도의 페이지에서 제공될 예정입니다.")
-        # 추후 ask_ai_crypto_page.py를 실행하는 로직을 여기에 추가할 수 있습니다.
-        # 예: st.switch_page("pages/ask_ai_crypto_page.py") (Streamlit 1.28+ 버전)
-        st.stop() # '물어보기' 선택 시 아래 로그인 폼은 보이지 않음
-
-    # --- '자동매매' 선택 시에만 보이는 로그인 폼 ---
+    # --- 로그인 폼 ---
     with st.form("login_form"):
         password_input = st.text_input("비밀번호를 입력하세요.", type="password")
         submitted = st.form_submit_button("로그인")
         if submitted:
             correct_password = get_password()
             if password_input == correct_password:
+                # 로그인 성공 시, 선택한 모드를 세션에 저장
+                st.session_state['selected_mode'] = mode
                 st.session_state['logged_in'] = True
                 st.rerun()
             else:
                 st.error("비밀번호가 틀렸습니다.")
-    
+                
+
     with st.expander("비밀번호를 잊으셨나요?"):
         with st.form("reset_password_form", clear_on_submit=True):
             st.subheader("비밀번호 재설정")

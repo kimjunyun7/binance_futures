@@ -459,6 +459,9 @@ def render_log_viewer_page():
 initialize_password()
 setup_files_and_db()
 
+# 새로 만든 페이지 import
+from ask_ai_crypto_page import render_ask_ai_page
+
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
@@ -466,27 +469,36 @@ if not st.session_state['logged_in']:
     # 로그인 페이지
     render_login_page(ADMIN_PASSWORD)
 else:
-    with st.sidebar:
-        st.header("메뉴")
-        page = st.radio("페이지 선택", ["대시보드", "프롬프트 관리", "실시간 로그"], label_visibility="collapsed")
-        st.markdown("---")
-        with st.expander("⚙️ 설정"):
-            with st.form("password_change_form", clear_on_submit=True):
-                st.subheader("비밀번호 변경")
-                new_pw_sb = st.text_input("새 접속 비밀번호", type="password", key="new_pw_sb")
-                admin_pw_sb = st.text_input("2차 비밀번호", type="password", key="admin_pw_sb")
-                if st.form_submit_button("변경하기"):
-                    if admin_pw_sb == ADMIN_PASSWORD:
-                        if new_pw_sb:
-                            set_password(new_pw_sb)
-                            st.success("비밀번호가 변경되었습니다.")
+    # 로그인 성공 후, 저장된 모드에 따라 다른 화면을 보여줌
+    selected_mode = st.session_state.get('selected_mode', '자동매매')
+
+    if selected_mode == '자동매매':
+        # --- 기존 대시보드 UI ---
+        with st.sidebar:
+            st.header("메뉴")
+            page = st.radio("페이지 선택", ["대시보드", "프롬프트 관리", "실시간 로그"], label_visibility="collapsed")
+            st.markdown("---")
+            with st.expander("⚙️ 설정"):
+                with st.form("password_change_form", clear_on_submit=True):
+                    st.subheader("비밀번호 변경")
+                    new_pw_sb = st.text_input("새 접속 비밀번호", type="password", key="new_pw_sb")
+                    admin_pw_sb = st.text_input("2차 비밀번호", type="password", key="admin_pw_sb")
+                    if st.form_submit_button("변경하기"):
+                        if admin_pw_sb == ADMIN_PASSWORD:
+                            if new_pw_sb:
+                                set_password(new_pw_sb)
+                                st.success("비밀번호가 변경되었습니다.")
+                            else:
+                                st.warning("새 비밀번호를 입력해주세요.")
                         else:
-                            st.warning("새 비밀번호를 입력해주세요.")
-                    else:
-                        st.error("2차 비밀번호가 틀렸습니다.")
-        if st.button("로그아웃"):
-            st.session_state['logged_in'] = False
-            st.rerun()
+                            st.error("2차 비밀번호가 틀렸습니다.")
+            if st.button("로그아웃"):
+                st.session_state['logged_in'] = False
+                st.rerun()
+
+    # --- '물어보기' 페이지 렌더링 ---
+    elif selected_mode == '물어보기':
+        render_ask_ai_page()
 
     if page == "대시보드":
         render_dashboard_page()
