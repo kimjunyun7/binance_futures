@@ -29,7 +29,7 @@ def render_login_page(admin_password):
     # 라디오 버튼 추가
     mode = st.radio(
         "실행할 모드를 선택하세요:",
-        ('자동매매', '물어보기'),
+        ('물어보기', '자동매매'),
         horizontal=True,
     )
     
@@ -46,7 +46,7 @@ def render_login_page(admin_password):
                 st.rerun()
             else:
                 st.error("비밀번호가 틀렸습니다.")
-                
+
 
     with st.expander("비밀번호를 잊으셨나요?"):
         with st.form("reset_password_form", clear_on_submit=True):

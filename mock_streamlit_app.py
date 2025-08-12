@@ -496,13 +496,14 @@ else:
                 st.session_state['logged_in'] = False
                 st.rerun()
 
+
+        if page == "대시보드":
+            render_dashboard_page()
+        elif page == "프롬프트 관리":
+            render_prompt_page()
+        elif page == "실시간 로그":
+            render_log_viewer_page()
+            
     # --- '물어보기' 페이지 렌더링 ---
     elif selected_mode == '물어보기':
         render_ask_ai_page()
-
-    if page == "대시보드":
-        render_dashboard_page()
-    elif page == "프롬프트 관리":
-        render_prompt_page()
-    elif page == "실시간 로그":
-        render_log_viewer_page()
