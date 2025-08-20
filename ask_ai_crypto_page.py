@@ -91,7 +91,35 @@ def get_ai_advice(data):
 def render_ask_ai_page():
     st.title("🙋 AI에게 물어보기")
     
-    # DuplicateElementId 오류 해결을 위해 고유한 key를 추가합니다.
+    # --- 맞춤형 CSS 스타일 ---
+    st.markdown("""
+    <style>
+    .ask-ai-container {
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 20px;
+        background-color: #1a1a1a;
+    }
+    .ask-ai-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        font-size: 0.9em; /* 전체적인 폰트 크기 축소 */
+    }
+    .ask-ai-label { 
+        color: #888;
+        margin-right: 15px;
+    }
+    .ask-ai-value { 
+        font-weight: 500; 
+        color: #DCDCDC; 
+        text-align: right;
+        word-wrap: break-word; /* 긴 텍스트 줄바꿈 */
+        white-space: normal;   /* 긴 텍스트 줄바꿈 */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     symbol_input = st.text_input("코인 심볼을 입력하세요 (예: BTC/USDT)", "BTC/USDT", key="ask_ai_symbol_input").upper()
 
     if st.button("분석 요청", type="primary"):
@@ -104,20 +132,41 @@ def render_ask_ai_page():
                     ai_advice = get_ai_advice(market_data)
                     
                     st.subheader("🤖 AI 트레이딩 계획")
-                    st.markdown(f"**시장 활성도:** {ai_advice.get('market_activity', 'N/A')}")
+
+                    # 맞춤형 HTML로 결과 표시
+                    st.markdown(f"""
+                    <div class="ask-ai-container">
+                        <div class="ask-ai-row">
+                            <span class="ask-ai-label">시장 활성도</span>
+                            <span class="ask-ai-value">{ai_advice.get('market_activity', 'N/A')}</span>
+                        </div>
+                        <div class="ask-ai-row">
+                            <span class="ask-ai-label">진입가</span>
+                            <span class="ask-ai-value">{ai_advice.get('entry_price', 'N/A')}</span>
+                        </div>
+                        <div class="ask-ai-row">
+                            <span class="ask-ai-label">예산</span>
+                            <span class="ask-ai-value">{ai_advice.get('budget', 'N/A')}</span>
+                        </div>
+                        <div class="ask-ai-row">
+                            <span class="ask-ai-label">레버리지</span>
+                            <span class="ask-ai-value">{ai_advice.get('leverage', 'N/A')}</span>
+                        </div>
+                        <div class="ask-ai-row">
+                            <span class="ask-ai-label">TP / SL</span>
+                            <span class="ask-ai-value">{ai_advice.get('tp_sl', 'N/A')}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
-                    cols = st.columns(4)
-                    cols[0].metric("진입가", ai_advice.get('entry_price', 'N/A'))
-                    cols[1].metric("예산", ai_advice.get('budget', 'N/A'))
-                    cols[2].metric("레버리지", ai_advice.get('leverage', 'N/A'))
-                    cols[3].metric("TP / SL", ai_advice.get('tp_sl', 'N/A'))
-                    
-                    with st.expander("분석 근거 보기"):
-                        st.write(ai_advice.get('reasoning', 'No reasoning provided.'))
+                    st.subheader("📝 분석 근거")
+                    st.info(ai_advice.get('reasoning', '분석 근거가 제공되지 않았습니다.'))
 
                 except Exception as e:
                     st.error(f"분석 중 오류가 발생했습니다: {e}")
 
+    # 로그아웃 버튼은 페이지 하단에 배치
+    st.markdown("---")
     if st.button("로그아웃"):
         st.session_state['logged_in'] = False
         st.rerun()
