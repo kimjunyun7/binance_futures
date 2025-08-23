@@ -73,34 +73,41 @@ def render_info_section(stock, info, summary, ticker_input):
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px; margin-bottom: 20px; }
     .info-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; padding: 4px 0; }
     .info-label { color: #888; }
-    .info-value { font-weight: 500; color: #DCDCDC; text-align: right; white-space: normal; }
+    .info-value { font-weight: 600; color: #ECECEC; text-align: right; white-space: normal; } /* 수치 폰트 진하게 */
     .st-emotion-cache-1r6slb0 { font-size: 1.1rem; } /* Subheader 크기 조절 */
-    .indicator-desc { font-size: 0.8em; color: #666; margin-left: 8px; }
+    
+    /* 지표 세트 스타일 */
+    .indicator-block { 
+        border-bottom: 1px solid #222; 
+        padding: 8px 0; 
+        margin-bottom: 8px;
+    }
+    .indicator-header { 
+        display: flex; 
+        justify-content: space-between; 
+        font-weight: bold; 
+        font-size: 1.05em;
+        color: #ECECEC; /* 수치 폰트 진하게 */
+    }
+    .indicator-desc { 
+        font-size: 0.85em; 
+        color: #999999; /* 설명 텍스트 (진한 회색) */
+        margin-top: 4px;
+        line-height: 1.5;
+    }
     </style>
     """, unsafe_allow_html=True)
 
     st.subheader(f"{info.get('longName', ticker_input)} ({info.get('symbol', '')})")
     
-    # --- 가격 정보 (2x2 그리드) ---
+    # --- 가격 정보 ---
     st.markdown(f"""
     <div class="info-container">
         <div class="info-grid">
-            <div class="info-row">
-                <span class="info-label">현재가</span>
-                <span class="info-value">${info.get('currentPrice', 0):,.2f}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">등락</span>
-                <span class="info-value">{info.get('regularMarketChange', 0):,.2f} ({info.get('regularMarketChangePercent', 0)*100:.2f}%)</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">고가</span>
-                <span class="info-value">${info.get('dayHigh', 0):,.2f}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">저가</span>
-                <span class="info-value">${info.get('dayLow', 0):,.2f}</span>
-            </div>
+            <div class="info-row"><span class="info-label">현재가</span><span class="info-value">${info.get('currentPrice', 0):,.2f}</span></div>
+            <div class="info-row"><span class="info-label">등락</span><span class="info-value">{info.get('regularMarketChange', 0):,.2f} ({info.get('regularMarketChangePercent', 0)*100:.2f}%)</span></div>
+            <div class="info-row"><span class="info-label">고가</span><span class="info-value">${info.get('dayHigh', 0):,.2f}</span></div>
+            <div class="info-row"><span class="info-label">저가</span><span class="info-value">${info.get('dayLow', 0):,.2f}</span></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -110,7 +117,7 @@ def render_info_section(stock, info, summary, ticker_input):
     # --- 지표 세트 ---
     st.subheader("지표 세트")
     
-    hist_data = stock.history(period="1y") # 1년치 데이터로 지표 계산
+    hist_data = stock.history(period="1y")
     indicators = calculate_full_indicators(hist_data)
     
     st.write("**TradingView 요약**")
@@ -119,51 +126,62 @@ def render_info_section(stock, info, summary, ticker_input):
 
     st.markdown('<div class="info-container" style="margin-top: 20px;">', unsafe_allow_html=True)
     
-    # 각 지표를 설명과 함께 표시
+    # RSI
     st.markdown(f"""
-        <div class="info-row">
-            <span class="info-label">단순이동평균 (SMA 20)</span>
-            <span class="info-value">{indicators.get('SMA_20', 0):,.2f} <span class="indicator-desc"> (추세 확인)</span></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">지수이동평균 (EMA 20)</span>
-            <span class="info-value">{indicators.get('EMA_20', 0):,.2f} <span class="indicator-desc"> (최근 가격 가중)</span></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">RSI (14)</span>
-            <span class="info-value">{indicators.get('RSI_14', 0):,.2f} <span class="indicator-desc"> (과매수/과매도)</span></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">MACD Level</span>
-            <span class="info-value">{indicators.get('MACD_12_26_9', 0):,.2f} <span class="indicator-desc"> (추세 강도/방향)</span></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">볼린저 밴드 (20, 2)</span>
-            <span class="info-value">{indicators.get('BBL_20_2.0', 0):,.2f} ~ {indicators.get('BBU_20_2.0', 0):,.2f} <span class="indicator-desc"> (변동성)</span></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">ADX (14)</span>
-            <span class="info-value">{indicators.get('ADX_14', 0):,.2f} <span class="indicator-desc"> (추세 강도)</span></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">OBV (On-Balance Volume)</span>
-            <span class="info-value">{indicators.get('OBV', 0):,} <span class="indicator-desc"> (거래량 동력)</span></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Williams %R (14)</span>
-            <span class="info-value">{indicators.get('WILLR_14', 0):,.2f} <span class="indicator-desc"> (과매수/과매도)</span></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">모멘텀 (10)</span>
-            <span class="info-value">{indicators.get('MOM_10', 0):,.2f} <span class="indicator-desc"> (가격 변화 속도)</span></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">일목균형표 (전환/기준)</span>
-            <span class="info-value">{indicators.get('ITS_9', 0):,.2f} / {indicators.get('IKS_26', 0):,.2f} <span class="indicator-desc"> (추세/지지/저항)</span></span>
+        <div class="indicator-block">
+            <div class="indicator-header"><span>RSI (14)</span><span>{indicators.get('RSI_14', 0):.2f}</span></div>
+            <div class="indicator-desc">
+                70 이상: 과매수 상태로, 매도 압력이 높아져 하락 전환 가능성.<br>
+                30 이하: 과매도 상태로, 매수 압력이 높아져 상승 전환 가능성.
+            </div>
         </div>
     """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # MACD
+    st.markdown(f"""
+        <div class="indicator-block">
+            <div class="indicator-header"><span>MACD (12, 26, 9)</span><span>{indicators.get('MACD_12_26_9', 0):.2f}</span></div>
+            <div class="indicator-desc">
+                MACD선이 Signal선 위로 교차(골든크로스) 시 상승 신호.<br>
+                MACD선이 Signal선 아래로 교차(데드크로스) 시 하락 신호.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
+    # 볼린저 밴드
+    st.markdown(f"""
+        <div class="indicator-block">
+            <div class="indicator-header"><span>볼린저 밴드 (20, 2)</span><span>{indicators.get('BBL_20_2.0', 0):.2f} ~ {indicators.get('BBU_20_2.0', 0):.2f}</span></div>
+            <div class="indicator-desc">
+                밴드 폭이 좁아지면(수축) 곧 큰 변동성 발생 가능성.<br>
+                주가가 상단 밴드 터치 시 과매수, 하단 밴드 터치 시 과매도 경향.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # ADX
+    st.markdown(f"""
+        <div class="indicator-block">
+            <div class="indicator-header"><span>ADX (14)</span><span>{indicators.get('ADX_14', 0):.2f}</span></div>
+            <div class="indicator-desc">
+                수치가 높을수록(보통 25 이상) 현재 추세의 강도가 강함을 의미.<br>
+                수치가 낮으면(보통 20 이하) 추세가 약하거나 횡보 상태.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # OBV
+    st.markdown(f"""
+        <div class="indicator-block">
+            <div class="indicator-header"><span>OBV (On-Balance Volume)</span><span>{indicators.get('OBV', 0):,}</span></div>
+            <div class="indicator-desc">
+                주가와 함께 OBV가 상승하면 매집 에너지가 강함을 의미.<br>
+                주가는 상승하는데 OBV가 하락하면 상승 동력이 약화됨을 시사.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 메인 실행 로직 (테스트용) ---
 if __name__ == "__main__":
