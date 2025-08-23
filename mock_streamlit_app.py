@@ -475,7 +475,7 @@ else:
     selected_mode = st.session_state.get('selected_mode', '자동매매')
 
     if selected_mode == '자동매매':
-        # --- 기존 대시보드 UI ---
+        # --- 자동매매 대시보드 UI ---
         with st.sidebar:
             st.header("메뉴")
             page = st.radio("페이지 선택", ["대시보드", "프롬프트 관리", "실시간 로그"], label_visibility="collapsed")
@@ -498,7 +498,6 @@ else:
                 st.session_state['logged_in'] = False
                 st.rerun()
 
-
         if page == "대시보드":
             render_dashboard_page()
         elif page == "프롬프트 관리":
@@ -506,8 +505,8 @@ else:
         elif page == "실시간 로그":
             render_log_viewer_page()
             
-    # --- '물어보기' 페이지 렌더링 ---
     elif selected_mode == '물어보기':
+        # --- '물어보기' 페이지 렌더링 ---
         render_ask_ai_page()
     
     elif selected_mode == '주식 추천':
