@@ -29,7 +29,7 @@ def render_stock_analysis_page():
             )
 
             if selected_section == "정보":
-                render_info_section(stock, info, summary, ticker_input)
+                render_info_section(stock, info, summary)
 
             elif selected_section == "그래프":
                 st.info("그래프 섹션은 다음 단계에서 구현될 예정입니다.")
