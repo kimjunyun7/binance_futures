@@ -3,20 +3,23 @@ import yfinance as yf
 from tradingview_ta import TA_Handler, Interval
 import pandas_ta as ta
 import pandas as pd
+import plotly.graph_objects as go # Plotly
 
 def render_stock_analysis_page():
-    st.title("📈 주식 분석")
+    st.title("주식 분석")
 
     # --- 1. 주식 티커 검색 ---
     ticker_input = st.text_input("분석할 주식의 티커를 입력하세요 (예: AAPL, GOOG, NVDA)", "AAPL").upper()
 
     if ticker_input:
         try:
-            # --- 2. 기본 정보 및 기술적 분석 요약 ---
             stock = yf.Ticker(ticker_input)
             info = stock.info
-            
-            # TradingView 기술적 분석 요약 가져오기
+            # info 딕셔너리가 비어있으면 (잘못된 티커 등), 오류 발생
+            if not info or info.get('trailingPE') is None:
+                st.error(f"'{ticker_input}'에 대한 정보를 찾을 수 없습니다. 티커를 확인해주세요.")
+                return
+
             handler = TA_Handler(symbol=ticker_input, screener="america", exchange="NASDAQ", interval=Interval.INTERVAL_1_DAY)
             summary = handler.get_analysis().summary
 
@@ -32,13 +35,68 @@ def render_stock_analysis_page():
                 render_info_section(stock, info, summary, ticker_input)
 
             elif selected_section == "그래프":
-                st.info("그래프 섹션은 다음 단계에서 구현될 예정입니다.")
+                render_graph_section(stock, info) # 그래프 섹션 함수 호출
                 
             elif selected_section == "재무제표":
                 st.info("재무제표 섹션은 다음 단계에서 구현될 예정입니다.")
 
         except Exception as e:
-            st.error(f"'{ticker_input}'에 대한 정보를 가져오는 중 오류가 발생했습니다. 티커가 올바른지 확인해주세요. (오류: {e})")
+            st.error(f"'{ticker_input}'에 대한 정보를 가져오는 중 오류가 발생했습니다. 티커가 올바른지 확인해주세요.")
+
+# --- 그래프 섹션 함수 ---
+def render_graph_section(stock, info):
+    """그래프 섹션 UI를 그립니다."""
+    st.subheader(f"{info.get('longName', '')} 가격 차트")
+
+    # --- 시간 기준 선택 ---
+    time_intervals = {
+        "15분": ("15m", "5d"), "30분": ("30m", "10d"), "1시간": ("1h", "2mo"),
+        "1일": ("1d", "1y"), "1주": ("1wk", "5y"), "1달": ("1mo", "max")
+    }
+    selected_interval_label = st.selectbox("시간 기준(봉) 선택:", time_intervals.keys(), index=3) # 기본값을 '1일'로 설정
+    
+    interval_code, period_code = time_intervals[selected_interval_label]
+
+    # --- 데이터 가져오기 및 차트 그리기 ---
+    with st.spinner(f"{selected_interval_label} 데이터를 불러오는 중..."):
+        hist_df = stock.history(period=period_code, interval=interval_code)
+
+        if hist_df.empty:
+            st.warning("선택한 기간에 대한 데이터가 없습니다.")
+        else:
+            fig = go.Figure()
+
+            # 캔들스틱 차트
+            fig.add_trace(go.Candlestick(
+                x=hist_df.index,
+                open=hist_df['Open'],
+                high=hist_df['High'],
+                low=hist_df['Low'],
+                close=hist_df['Close'],
+                name='캔들'
+            ))
+
+            # 거래량 바 차트
+            fig.add_trace(go.Bar(
+                x=hist_df.index,
+                y=hist_df['Volume'],
+                name='거래량',
+                marker_color='rgba(150, 150, 150, 0.5)',
+                yaxis='y2' # 보조 y축 사용
+            ))
+
+            # 차트 레이아웃 설정
+            fig.update_layout(
+                title=f"{info.get('symbol', '')} - {selected_interval_label} 차트",
+                yaxis_title='가격 (USD)',
+                xaxis_rangeslider_visible=False, # 하단 미리보기 슬라이더 제거
+                yaxis=dict(domain=[0.3, 1]), # 가격 차트가 위 70% 공간 차지
+                yaxis2=dict(domain=[0, 0.2], title='거래량', showticklabels=False), # 거래량 차트가 아래 20% 공간 차지
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                height=500
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
 
 def calculate_full_indicators(stock_data):
     """pandas-ta를 사용해 모든 기술적 지표를 계산합니다."""
@@ -73,7 +131,7 @@ def render_info_section(stock, info, summary, ticker_input):
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px; margin-bottom: 20px; }
     .info-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; padding: 4px 0; }
     .info-label { color: #888; }
-    .info-value { font-weight: 600; color: #ECECEC; text-align: right; white-space: normal; } /* 수치 폰트 진하게 */
+    .info-value { font-weight: 600; color: #212529; text-align: right; white-space: normal; } /* 폰트 색상 및 굵기 수정 */
     .st-emotion-cache-1r6slb0 { font-size: 1.1rem; } /* Subheader 크기 조절 */
     
     /* 지표 세트 스타일 */
@@ -85,9 +143,9 @@ def render_info_section(stock, info, summary, ticker_input):
     .indicator-header { 
         display: flex; 
         justify-content: space-between; 
-        font-weight: bold; 
+        font-weight: 600; /* 폰트 굵기 수정 */
         font-size: 1.05em;
-        color: #ECECEC; /* 수치 폰트 진하게 */
+        color: #212529; /* 폰트 색상 수정 */
     }
     .indicator-desc { 
         font-size: 0.85em; 
@@ -99,7 +157,7 @@ def render_info_section(stock, info, summary, ticker_input):
     """, unsafe_allow_html=True)
 
     st.subheader(f"{info.get('longName', ticker_input)} ({info.get('symbol', '')})")
-    
+
     # --- 가격 정보 ---
     st.markdown(f"""
     <div class="info-container">
