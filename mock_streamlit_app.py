@@ -14,6 +14,18 @@ from login_page import render_login_page, initialize_password, set_password
 load_dotenv()
 st.set_page_config(page_title="트레이딩 봇 관리", page_icon="⚙️", layout="wide")
 
+# Streamlit의 최대 너비 제한을 해제하는 CSS 주입
+st.markdown("""
+<style>
+    .block-container {
+        max-width: 95% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
 # ccxt 초기화 (가격 조회용)
 try:
     exchange = ccxt.binance({'options': {'defaultType': 'future'}})

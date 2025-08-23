@@ -55,7 +55,7 @@ def render_graph_section(info, ticker_input):
 
     # --- TradingView 위젯 HTML 코드 (가로세로 비율 적용) ---
     tradingview_widget_html = f"""
-    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+    <div style="position: relative; padding-bottom: 5%; height: 0; overflow: hidden;">
         <div class="tradingview-widget-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
           <div id="tradingview_chart" style="height:100%;width:100%"></div>
           <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
@@ -88,7 +88,7 @@ def render_graph_section(info, ticker_input):
     
     # height를 지정하지 않으면 Streamlit이 자동으로 높이를 조절합니다.
     st.components.v1.html(tradingview_widget_html, scrolling=False)
-    
+
 def calculate_full_indicators(stock_data):
     """pandas-ta를 사용해 모든 기술적 지표를 계산합니다."""
     df = stock_data.copy()
