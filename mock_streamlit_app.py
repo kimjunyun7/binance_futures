@@ -509,6 +509,6 @@ else:
         # --- '물어보기' 페이지 렌더링 ---
         render_ask_ai_page()
     
-    elif selected_mode == '주식 추천':
-        # --- '주식 추천' 페이지 렌더링 ---
+    elif selected_mode == '주식추천':
+        # --- '주식추천' 페이지 렌더링 ---
         render_stock_analysis_page()
