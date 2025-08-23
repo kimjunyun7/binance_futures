@@ -28,19 +28,18 @@ def render_stock_analysis_page():
             if selected_section == "정보":
                 render_info_section(stock, info, summary, ticker_input)
             elif selected_section == "그래프":
-                render_graph_section(info) # 그래프 섹션 함수 호출
+                render_graph_section(info, ticker_input) # 그래프 섹션 함수 호출
             elif selected_section == "재무제표":
                 st.info("재무제표 섹션은 다음 단계에서 구현될 예정입니다.")
 
         except Exception as e:
             st.error(f"'{ticker_input}'에 대한 정보를 가져오는 중 오류가 발생했습니다.")
 
-def render_graph_section(info):
+def render_graph_section(info, ticker_input):
     """TradingView 위젯을 사용해 그래프 섹션 UI를 그립니다."""
     st.subheader(f"{info.get('longName', '')} 가격 차트")
 
     # --- 시간 기준 선택 ---
-    # TradingView 위젯에서 사용할 수 있는 interval 코드로 매핑
     time_intervals = {
         "15분": "15", "30분": "30", "1시간": "60", "1일": "D",
         "1주": "W", "1달": "M"
@@ -54,8 +53,8 @@ def render_graph_section(info):
     interval_code = time_intervals[selected_interval_label]
     
     # --- TradingView 위젯 HTML 코드 생성 ---
-    # NASDAQ, NYSE 등 주요 거래소 심볼을 TradingView 형식으로 변환
-    tv_symbol = f"{info.get('exchange', 'NASDAQ')}:{info.get('symbol', '')}"
+    # 거래소 코드를 제거하고, 사용자가 입력한 티커를 그대로 사용하도록 수정
+    tv_symbol = ticker_input
 
     tradingview_widget_html = f"""
     <div class="tradingview-widget-container" style="height:100%;width:100%">
@@ -79,6 +78,8 @@ def render_graph_section(info):
       </script>
     </div>
     """
+    
+    st.components.v1.html(tradingview_widget_html, height=520)
 
 def calculate_full_indicators(stock_data):
     """pandas-ta를 사용해 모든 기술적 지표를 계산합니다."""
