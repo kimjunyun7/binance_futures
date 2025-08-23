@@ -52,16 +52,16 @@ def render_graph_section(info, ticker_input):
     selected_interval_label = st.selectbox(
         "시간 기준(봉) 선택:",
         time_intervals.keys(),
-        index=3
+        index=3 
     )
     
     interval_code = time_intervals.get(selected_interval_label, "D")
     tv_symbol = ticker_input
 
-    # --- TradingView 위젯 HTML 코드 (높이를 매우 크게 설정) ---
-    # 가로세로 비율 컨테이너를 제거하고, 고정된 큰 높이 값을 사용합니다.
+    # --- TradingView 위젯 HTML 코드 (가로 스크롤이 가능한 넓은 컨테이너) ---
+    # 너비를 1800px로 고정하여 화면보다 크게 만듭니다.
     tradingview_widget_html = f"""
-    <div class="tradingview-widget-container" style="width: 100%; height: 800px;">
+    <div style="width: 1800px; height: 720px;">
       <div id="tradingview_chart" style="width: 100%; height: 100%;"></div>
       <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
       <script type="text/javascript">
@@ -90,8 +90,8 @@ def render_graph_section(info, ticker_input):
     </div>
     """
     
-    # Streamlit 컴포넌트의 높이도 위젯과 맞춰줍니다.
-    st.components.v1.html(tradingview_widget_html, height=800, scrolling=False)
+    # scrolling=True로 설정하여 스트림릿이 가로 스크롤을 허용하도록 합니다.
+    st.components.v1.html(tradingview_widget_html, height=740, scrolling=True)
     
 
 def calculate_full_indicators(stock_data):
