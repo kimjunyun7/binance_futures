@@ -19,7 +19,7 @@ st.markdown("""
 <style>
     .block-container {
         max-width: 100% !important;
-        padding: 1rem !important;
+        padding: 1rem 0.5rem !important;
     }
 </style>
 """, unsafe_allow_html=True)

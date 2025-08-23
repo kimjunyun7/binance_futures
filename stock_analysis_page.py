@@ -40,58 +40,75 @@ def render_stock_analysis_page():
 
 # (이하 render_graph_section, render_info_section 등 다른 함수들은 기존과 동일)
 
+
 def render_graph_section(info, ticker_input):
     """TradingView 위젯을 사용해 그래프 섹션 UI를 그립니다."""
     st.subheader(f"{info.get('longName', '')} 가격 차트")
 
-    # --- 시간 기준 선택 ---
     time_intervals = {
-        "15분": "15", "30분": "30", "1시간": "60", "1일": "D",
-        "1주": "W", "1달": "M"
+        "15분": "15", "30분": "30", "1시간": "60", "1일": "D", "1주": "W", "1달": "M"
     }
-    selected_interval_label = st.selectbox(
-        "시간 기준(봉) 선택:",
-        time_intervals.keys(),
-        index=3 
-    )
+    selected_interval_label = st.selectbox("시간 기준(봉) 선택:", time_intervals.keys(), index=3)
     
     interval_code = time_intervals.get(selected_interval_label, "D")
     tv_symbol = ticker_input
 
-    # --- TradingView 위젯 HTML 코드 (가로 스크롤이 가능한 넓은 컨테이너) ---
-    # 너비를 1800px로 고정하여 화면보다 크게 만듭니다.
-    tradingview_widget_html = f"""
-    <div style="width: 1800px; height: 720px;">
-      <div id="tradingview_chart" style="width: 100%; height: 100%;"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-      <script type="text/javascript">
-      new TradingView.widget(
-      {{
-        "autosize": true,
-        "symbol": "{tv_symbol}",
-        "interval": "{interval_code}",
-        "timezone": "Etc/UTC",
-        "theme": "dark",
-        "style": "1",
-        "locale": "en",
-        "enable_publishing": false,
-        "allow_symbol_change": true,
-        "studies": [
-          "bollinger@tv-basicstudies",
-          "RSI@tv-basicstudies",
-          {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 5}}}},
-          {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 20}}}},
-          {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 60}}}}
-        ],
-        "container_id": "tradingview_chart"
-      }}
-      );
-      </script>
+    # --- 스크롤바 스타일링을 위한 CSS 및 HTML 구조 ---
+    styled_widget_html = f"""
+    <style>
+        .tv-scroll-container {{
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch; /* iOS 부드러운 스크롤 */
+        }}
+        /* 웹킷 기반 브라우저(크롬, 사파리 등) 스크롤바 스타일 */
+        .tv-scroll-container::-webkit-scrollbar {{
+            height: 12px; /* 스크롤바 높이 키우기 */
+        }}
+        .tv-scroll-container::-webkit-scrollbar-track {{
+            background: #222; /* 스크롤바 배경 */
+        }}
+        .tv-scroll-container::-webkit-scrollbar-thumb {{
+            background-color: #555; /* 스크롤바 막대 색상 */
+            border-radius: 10px;
+            border: 3px solid #222;
+        }}
+    </style>
+
+    <div class="tv-scroll-container">
+        <div style="width: 1800px; height: 720px;">
+          <div id="tradingview_chart" style="width: 100%; height: 100%;"></div>
+        </div>
     </div>
+    
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script type="text/javascript">
+      if (document.getElementById('tradingview_chart')) {{
+          new TradingView.widget(
+          {{
+            "autosize": true,
+            "symbol": "{tv_symbol}",
+            "interval": "{interval_code}",
+            "timezone": "Etc/UTC",
+            "theme": "dark",
+            "style": "1",
+            "locale": "en",
+            "enable_publishing": false,
+            "allow_symbol_change": true,
+            "studies": [
+              "bollinger@tv-basicstudies",
+              "RSI@tv-basicstudies",
+              {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 5}}}},
+              {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 20}}}},
+              {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 60}}}}
+            ],
+            "container_id": "tradingview_chart"
+          }}
+          );
+      }}
+    </script>
     """
     
-    # scrolling=True로 설정하여 스트림릿이 가로 스크롤을 허용하도록 합니다.
-    st.components.v1.html(tradingview_widget_html, height=740, scrolling=True)
+    st.components.v1.html(styled_widget_html, height=740, scrolling=True)
     
 
 def calculate_full_indicators(stock_data):
