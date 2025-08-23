@@ -31,7 +31,7 @@ def render_stock_analysis_page():
         }
     </style>
     """, unsafe_allow_html=True)
-    
+
     # --- 1. 주식 티커 검색 ---
     ticker_input = st.text_input("분석할 주식의 티커를 입력하세요 (예: AAPL, GOOG, NVDA)", "AAPL").upper()
 
@@ -78,105 +78,64 @@ def render_graph_section(info, ticker_input):
     interval_code = time_intervals.get(selected_interval_label, "D")
     tv_symbol = ticker_input
 
-    # 16:9 비율로 크기 조정 (더 큰 사이즈로 변경)
-    chart_width = 1920  # Full HD 너비
-    chart_height = 1080  # Full HD 높이 (16:9 비율)
-    
-    # 스크롤 컨테이너와 차트 HTML
+    # 모바일 친화적인 16:9 비율 설정
     styled_widget_html = f"""
     <style>
-        /* 전체 컨테이너를 넓게 설정 */
-        .main .block-container {{
-            max-width: 100% !important;
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-        }}
-        
-        .tv-chart-container {{
+        .tradingview-widget-container {{
+            position: relative;
             width: 100%;
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            border: 1px solid #333;
-            border-radius: 8px;
-            background-color: #131722;
-            padding: 10px;
-            margin: 20px 0;
+            padding-bottom: 56.25%; /* 16:9 비율 유지 */
+            height: 0;
+            overflow: hidden;
         }}
         
-        /* 스크롤바 스타일링 */
-        .tv-chart-container::-webkit-scrollbar {{
-            height: 14px;
-        }}
-        .tv-chart-container::-webkit-scrollbar-track {{
-            background: #1e222d;
-            border-radius: 7px;
-        }}
-        .tv-chart-container::-webkit-scrollbar-thumb {{
-            background: #434651;
-            border-radius: 7px;
-        }}
-        .tv-chart-container::-webkit-scrollbar-thumb:hover {{
-            background: #5d606b;
-        }}
-        
-        /* 차트 내부 wrapper */
-        .tv-chart-wrapper {{
-            width: {chart_width}px;
-            height: {chart_height}px;
-            min-width: {chart_width}px;
-            min-height: {chart_height}px;
+        .tradingview-widget-container iframe {{
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
         }}
     </style>
 
-    <div class="tv-chart-container">
-        <div class="tv-chart-wrapper">
-            <div id="tradingview_chart_{ticker_input}" style="width: 100%; height: 100%;"></div>
-        </div>
+    <!-- TradingView Widget BEGIN -->
+    <div class="tradingview-widget-container">
+        <div id="tradingview_{ticker_input}" style="position: absolute; width: 100%; height: 100%;"></div>
     </div>
     
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script type="text/javascript">
-        // 고유 ID를 사용하여 중복 렌더링 방지
-        var chartId = 'tradingview_chart_{ticker_input}';
-        var chartElement = document.getElementById(chartId);
-        
-        if (chartElement && !chartElement.hasChildNodes()) {{
-            new TradingView.widget({{
-                "width": {chart_width},
-                "height": {chart_height},
-                "symbol": "{tv_symbol}",
-                "interval": "{interval_code}",
-                "timezone": "Asia/Seoul",
-                "theme": "dark",
-                "style": "1",
-                "locale": "ko",
-                "toolbar_bg": "#f1f3f6",
-                "enable_publishing": false,
-                "allow_symbol_change": true,
-                "hide_side_toolbar": false,
-                "details": true,
-                "hotlist": true,
-                "calendar": true,
-                "studies": [
-                    "BB@tv-basicstudies",
-                    "RSI@tv-basicstudies",
-                    {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 5}}}},
-                    {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 20}}}},
-                    {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 60}}}},
-                    "MACD@tv-basicstudies",
-                    "Volume@tv-basicstudies"
-                ],
-                "container_id": chartId
-            }});
-        }}
+        new TradingView.widget({{
+            "autosize": true,
+            "symbol": "{tv_symbol}",
+            "interval": "{interval_code}",
+            "timezone": "Asia/Seoul",
+            "theme": "dark",
+            "style": "1",
+            "locale": "ko",
+            "toolbar_bg": "#f1f3f6",
+            "enable_publishing": false,
+            "allow_symbol_change": false,
+            "hide_top_toolbar": false,
+            "hide_legend": false,
+            "save_image": false,
+            "studies": [
+                "BB@tv-basicstudies",
+                "RSI@tv-basicstudies",
+                {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 5}}}},
+                {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 20}}}},
+                {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 60}}}}
+            ],
+            "container_id": "tradingview_{ticker_input}"
+        }});
     </script>
+    <!-- TradingView Widget END -->
     """
     
-    # 차트 높이를 더 크게 설정 (16:9 비율 유지하면서 뷰포트에 맞춤)
-    st.components.v1.html(styled_widget_html, height=1120, scrolling=False)
+    # 16:9 비율에 맞춘 높이 설정 (너비를 기준으로 계산)
+    st.components.v1.html(styled_widget_html, height=400, scrolling=False)
 
-
+    
 def calculate_full_indicators(stock_data):
     """pandas-ta를 사용해 모든 기술적 지표를 계산합니다."""
     df = stock_data.copy()
