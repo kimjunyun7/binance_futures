@@ -78,26 +78,47 @@ def render_graph_section(info, ticker_input):
     interval_code = time_intervals.get(selected_interval_label, "D")
     tv_symbol = ticker_input
 
-    # 직접적인 크기 지정
+    # 모바일 친화적인 16:9 비율 설정
     styled_widget_html = f"""
+    <style>
+        .tradingview-widget-container {{
+            position: relative;
+            width: 200%;
+            padding-bottom: 56.25%; /* 16:9 비율 유지 */
+            height: 0;
+            overflow: hidden;
+        }}
+        
+        .tradingview-widget-container iframe {{
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+        }}
+    </style>
+
     <!-- TradingView Widget BEGIN -->
-    <div class="tradingview-widget-container" style="height: 500px; width: 100%;">
-        <div id="tradingview_widget" style="height: 100%; width: 100%;"></div>
+    <div class="tradingview-widget-container">
+        <div id="tradingview_{ticker_input}" style="position: absolute; width: 100%; height: 100%;"></div>
     </div>
     
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script type="text/javascript">
         new TradingView.widget({{
-            "width": "100%",
-            "height": "100%",
+            "autosize": true,
             "symbol": "{tv_symbol}",
             "interval": "{interval_code}",
             "timezone": "Asia/Seoul",
             "theme": "dark",
             "style": "1",
             "locale": "ko",
+            "toolbar_bg": "#f1f3f6",
             "enable_publishing": false,
             "allow_symbol_change": false,
+            "hide_top_toolbar": false,
+            "hide_legend": false,
+            "save_image": false,
             "studies": [
                 "BB@tv-basicstudies",
                 "RSI@tv-basicstudies",
@@ -105,17 +126,16 @@ def render_graph_section(info, ticker_input):
                 {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 20}}}},
                 {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 60}}}}
             ],
-            "container_id": "tradingview_widget"
+            "container_id": "tradingview_{ticker_input}"
         }});
     </script>
     <!-- TradingView Widget END -->
     """
     
-    # 고정된 높이로 설정 (모바일에서 적절한 크기)
-    st.components.v1.html(styled_widget_html, height=500, scrolling=False)
+    # 16:9 비율에 맞춘 높이 설정 (너비를 기준으로 계산)
+    st.components.v1.html(styled_widget_html, height=400, scrolling=False)
 
 
-    
 def calculate_full_indicators(stock_data):
     """pandas-ta를 사용해 모든 기술적 지표를 계산합니다."""
     df = stock_data.copy()
