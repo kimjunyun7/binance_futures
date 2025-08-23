@@ -8,7 +8,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from streamlit_autorefresh import st_autorefresh
 from login_page import render_login_page, initialize_password, set_password
-from stock_analysis_page import render_stock_analysis_page
+
 
 # --- 1. 설정 및 초기화 ---
 load_dotenv()
@@ -462,6 +462,7 @@ setup_files_and_db()
 
 # 새로 만든 페이지 import
 from ask_ai_crypto_page import render_ask_ai_page
+from stock_analysis_page import render_stock_analysis_page
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
