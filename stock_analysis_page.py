@@ -27,7 +27,7 @@ def render_stock_analysis_page():
             )
 
             if selected_section == "정보":
-                render_info_section(stock, info, summary)
+                render_info_section(stock, info, summary, ticker_input)
 
             elif selected_section == "그래프":
                 st.info("그래프 섹션은 다음 단계에서 구현될 예정입니다.")
@@ -38,7 +38,7 @@ def render_stock_analysis_page():
         except Exception as e:
             st.error(f"'{ticker_input}'에 대한 정보를 가져오는 중 오류가 발생했습니다. 티커가 올바른지 확인해주세요. (오류: {e})")
 
-def render_info_section(stock, info, summary):
+def render_info_section(stock, info, summary, ticker_input):
     """정보 섹션 UI를 그립니다."""
     
     # --- 3. 가격 관련 수치 ---
