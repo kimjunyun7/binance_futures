@@ -18,9 +18,8 @@ st.set_page_config(page_title="트레이딩 봇 관리", page_icon="⚙️", lay
 st.markdown("""
 <style>
     .block-container {
-        max-width: 95% !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
+        max-width: 100% !important;
+        padding: 1rem !important;
     }
 </style>
 """, unsafe_allow_html=True)

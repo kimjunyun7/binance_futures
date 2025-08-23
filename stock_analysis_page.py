@@ -54,46 +54,45 @@ def render_graph_section(info, ticker_input):
         time_intervals.keys(),
         index=3
     )
-
+    
     interval_code = time_intervals.get(selected_interval_label, "D")
     tv_symbol = ticker_input
 
-    # --- TradingView 위젯 HTML 코드 ---
+    # --- TradingView 위젯 HTML 코드 (높이를 매우 크게 설정) ---
+    # 가로세로 비율 컨테이너를 제거하고, 고정된 큰 높이 값을 사용합니다.
     tradingview_widget_html = f"""
-    <div style="position: relative; padding-bottom: 40%; height: 0; overflow: hidden;">
-        <div class="tradingview-widget-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
-          <div id="tradingview_chart" style="height:100%;width:1080rem"></div>
-          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-          <script type="text/javascript">
-          new TradingView.widget(
-          {{
-            "autosize": true,
-            "symbol": "{tv_symbol}",
-            "interval": "{interval_code}",
-            "timezone": "Etc/UTC",
-            "theme": "dark",
-            "style": "1",
-            "locale": "en",
-            "enable_publishing": false,
-            "allow_symbol_change": true,
-            "studies": [
-              "bollinger@tv-basicstudies",
-              "RSI@tv-basicstudies",
-              {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 5}}}},
-              {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 20}}}},
-              {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 60}}}}
-            ],
-            "container_id": "tradingview_chart"
-          }}
-          );
-          </script>
-        </div>
+    <div class="tradingview-widget-container" style="width: 100%; height: 800px;">
+      <div id="tradingview_chart" style="width: 100%; height: 100%;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      new TradingView.widget(
+      {{
+        "autosize": true,
+        "symbol": "{tv_symbol}",
+        "interval": "{interval_code}",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "enable_publishing": false,
+        "allow_symbol_change": true,
+        "studies": [
+          "bollinger@tv-basicstudies",
+          "RSI@tv-basicstudies",
+          {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 5}}}},
+          {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 20}}}},
+          {{"id": "MASimple@tv-basicstudies", "inputs": {{"length": 60}}}}
+        ],
+        "container_id": "tradingview_chart"
+      }}
+      );
+      </script>
     </div>
     """
-
-    # Streamlit 컴포넌트의 높이를 늘립니다.
-    st.components.v1.html(tradingview_widget_html, height=700, scrolling=False)
-
+    
+    # Streamlit 컴포넌트의 높이도 위젯과 맞춰줍니다.
+    st.components.v1.html(tradingview_widget_html, height=800, scrolling=False)
+    
 
 def calculate_full_indicators(stock_data):
     """pandas-ta를 사용해 모든 기술적 지표를 계산합니다."""
