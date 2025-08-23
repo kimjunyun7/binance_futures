@@ -5,8 +5,9 @@ import pandas_ta as ta
 import pandas as pd
 
 def render_stock_analysis_page():
-    st.title("주식 분석")
+    st.title("📈 주식 분석")
 
+    # --- 1. 주식 티커 검색 ---
     ticker_input = st.text_input("분석할 주식의 티커를 입력하세요 (예: AAPL, GOOG, NVDA)", "AAPL").upper()
 
     if ticker_input:
@@ -17,23 +18,27 @@ def render_stock_analysis_page():
                 st.error(f"'{ticker_input}'에 대한 정보를 찾을 수 없습니다. 티커를 확인해주세요.")
                 return
 
-            handler = TA_Handler(symbol=ticker_input, screener="america", exchange="NASDAQ", interval=Interval.INTERVAL_1_DAY)
-            summary = handler.get_analysis().summary
+            # --- 2. 그래프 섹션 (최상단으로 이동) ---
+            render_graph_section(info, ticker_input)
 
-            selected_section = st.radio(
-                "섹션 선택", ["정보", "그래프", "재무제표"],
-                horizontal=True, label_visibility="collapsed"
-            )
+            st.markdown("---")
 
-            if selected_section == "정보":
+            # --- 3. 탭을 사용한 섹션 구분 ---
+            tab1, tab2 = st.tabs(["정보", "재무제표"])
+
+            with tab1:
+                # TradingView 기술적 분석 요약 가져오기
+                handler = TA_Handler(symbol=ticker_input, screener="america", exchange="NASDAQ", interval=Interval.INTERVAL_1_DAY)
+                summary = handler.get_analysis().summary
                 render_info_section(stock, info, summary, ticker_input)
-            elif selected_section == "그래프":
-                render_graph_section(info, ticker_input) # 그래프 섹션 함수 호출
-            elif selected_section == "재무제표":
+
+            with tab2:
                 st.info("재무제표 섹션은 다음 단계에서 구현될 예정입니다.")
 
         except Exception as e:
             st.error(f"'{ticker_input}'에 대한 정보를 가져오는 중 오류가 발생했습니다.")
+
+# (이하 render_graph_section, render_info_section 등 다른 함수들은 기존과 동일)
 
 def render_graph_section(info, ticker_input):
     """TradingView 위젯을 사용해 그래프 섹션 UI를 그립니다."""
