@@ -47,18 +47,17 @@ def render_graph_section(info, ticker_input):
     selected_interval_label = st.selectbox(
         "시간 기준(봉) 선택:",
         time_intervals.keys(),
-        index=3 # 기본값을 '1일'로 설정
+        index=3 
     )
     
     interval_code = time_intervals[selected_interval_label]
     
-    # --- TradingView 위젯 HTML 코드 생성 ---
-    # 거래소 코드를 제거하고, 사용자가 입력한 티커를 그대로 사용하도록 수정
     tv_symbol = ticker_input
 
+    # --- TradingView 위젯 HTML 코드 생성 (지표 추가) ---
     tradingview_widget_html = f"""
     <div class="tradingview-widget-container" style="height:100%;width:100%">
-      <div id="tradingview_chart" style="height:500px;width:100%"></div>
+      <div id="tradingview_chart" style="height:600px;width:100%"></div>
       <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
       <script type="text/javascript">
       new TradingView.widget(
@@ -72,6 +71,28 @@ def render_graph_section(info, ticker_input):
         "locale": "en",
         "enable_publishing": false,
         "allow_symbol_change": true,
+        "studies": [
+          "bollinger@tv-basicstudies",
+          "RSI@tv-basicstudies",
+          {{
+            "id": "MASimple@tv-basicstudies",
+            "inputs": {{
+              "length": 5
+            }}
+          }},
+          {{
+            "id": "MASimple@tv-basicstudies",
+            "inputs": {{
+              "length": 20
+            }}
+          }},
+          {{
+            "id": "MASimple@tv-basicstudies",
+            "inputs": {{
+              "length": 60
+            }}
+          }}
+        ],
         "container_id": "tradingview_chart"
       }}
       );
@@ -79,8 +100,9 @@ def render_graph_section(info, ticker_input):
     </div>
     """
     
-    st.components.v1.html(tradingview_widget_html, height=520)
-
+    # Streamlit 컴포넌트의 높이도 함께 수정
+    st.components.v1.html(tradingview_widget_html, height=620)
+    
 def calculate_full_indicators(stock_data):
     """pandas-ta를 사용해 모든 기술적 지표를 계산합니다."""
     df = stock_data.copy()
