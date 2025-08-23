@@ -3,19 +3,16 @@ import yfinance as yf
 from tradingview_ta import TA_Handler, Interval
 import pandas_ta as ta
 import pandas as pd
-import plotly.graph_objects as go # Plotly
 
 def render_stock_analysis_page():
     st.title("주식 분석")
 
-    # --- 1. 주식 티커 검색 ---
     ticker_input = st.text_input("분석할 주식의 티커를 입력하세요 (예: AAPL, GOOG, NVDA)", "AAPL").upper()
 
     if ticker_input:
         try:
             stock = yf.Ticker(ticker_input)
             info = stock.info
-            # info 딕셔너리가 비어있으면 (잘못된 티커 등), 오류 발생
             if not info or info.get('trailingPE') is None:
                 st.error(f"'{ticker_input}'에 대한 정보를 찾을 수 없습니다. 티커를 확인해주세요.")
                 return
@@ -23,80 +20,65 @@ def render_stock_analysis_page():
             handler = TA_Handler(symbol=ticker_input, screener="america", exchange="NASDAQ", interval=Interval.INTERVAL_1_DAY)
             summary = handler.get_analysis().summary
 
-            # --- UI 섹션 바 ---
             selected_section = st.radio(
-                "섹션 선택",
-                ["정보", "그래프", "재무제표"],
-                horizontal=True,
-                label_visibility="collapsed"
+                "섹션 선택", ["정보", "그래프", "재무제표"],
+                horizontal=True, label_visibility="collapsed"
             )
 
             if selected_section == "정보":
                 render_info_section(stock, info, summary, ticker_input)
-
             elif selected_section == "그래프":
-                render_graph_section(stock, info) # 그래프 섹션 함수 호출
-                
+                render_graph_section(info) # 그래프 섹션 함수 호출
             elif selected_section == "재무제표":
                 st.info("재무제표 섹션은 다음 단계에서 구현될 예정입니다.")
 
         except Exception as e:
-            st.error(f"'{ticker_input}'에 대한 정보를 가져오는 중 오류가 발생했습니다. 티커가 올바른지 확인해주세요.")
+            st.error(f"'{ticker_input}'에 대한 정보를 가져오는 중 오류가 발생했습니다.")
 
-# --- 그래프 섹션 함수 ---
-def render_graph_section(stock, info):
-    """그래프 섹션 UI를 그립니다."""
+def render_graph_section(info):
+    """TradingView 위젯을 사용해 그래프 섹션 UI를 그립니다."""
     st.subheader(f"{info.get('longName', '')} 가격 차트")
 
     # --- 시간 기준 선택 ---
+    # TradingView 위젯에서 사용할 수 있는 interval 코드로 매핑
     time_intervals = {
-        "15분": ("15m", "5d"), "30분": ("30m", "10d"), "1시간": ("1h", "2mo"),
-        "1일": ("1d", "1y"), "1주": ("1wk", "5y"), "1달": ("1mo", "max")
+        "15분": "15", "30분": "30", "1시간": "60", "1일": "D",
+        "1주": "W", "1달": "M"
     }
-    selected_interval_label = st.selectbox("시간 기준(봉) 선택:", time_intervals.keys(), index=3) # 기본값을 '1일'로 설정
+    selected_interval_label = st.selectbox(
+        "시간 기준(봉) 선택:",
+        time_intervals.keys(),
+        index=3 # 기본값을 '1일'로 설정
+    )
     
-    interval_code, period_code = time_intervals[selected_interval_label]
+    interval_code = time_intervals[selected_interval_label]
+    
+    # --- TradingView 위젯 HTML 코드 생성 ---
+    # NASDAQ, NYSE 등 주요 거래소 심볼을 TradingView 형식으로 변환
+    tv_symbol = f"{info.get('exchange', 'NASDAQ')}:{info.get('symbol', '')}"
 
-    # --- 데이터 가져오기 및 차트 그리기 ---
-    with st.spinner(f"{selected_interval_label} 데이터를 불러오는 중..."):
-        hist_df = stock.history(period=period_code, interval=interval_code)
-
-        if hist_df.empty:
-            st.warning("선택한 기간에 대한 데이터가 없습니다.")
-        else:
-            fig = go.Figure()
-
-            # 캔들스틱 차트
-            fig.add_trace(go.Candlestick(
-                x=hist_df.index,
-                open=hist_df['Open'],
-                high=hist_df['High'],
-                low=hist_df['Low'],
-                close=hist_df['Close'],
-                name='캔들'
-            ))
-
-            # 거래량 바 차트
-            fig.add_trace(go.Bar(
-                x=hist_df.index,
-                y=hist_df['Volume'],
-                name='거래량',
-                marker_color='rgba(150, 150, 150, 0.5)',
-                yaxis='y2' # 보조 y축 사용
-            ))
-
-            # 차트 레이아웃 설정
-            fig.update_layout(
-                title=f"{info.get('symbol', '')} - {selected_interval_label} 차트",
-                yaxis_title='가격 (USD)',
-                xaxis_rangeslider_visible=False, # 하단 미리보기 슬라이더 제거
-                yaxis=dict(domain=[0.3, 1]), # 가격 차트가 위 70% 공간 차지
-                yaxis2=dict(domain=[0, 0.2], title='거래량', showticklabels=False), # 거래량 차트가 아래 20% 공간 차지
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                height=500
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
+    tradingview_widget_html = f"""
+    <div class="tradingview-widget-container" style="height:100%;width:100%">
+      <div id="tradingview_chart" style="height:500px;width:100%"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      new TradingView.widget(
+      {{
+        "autosize": true,
+        "symbol": "{tv_symbol}",
+        "interval": "{interval_code}",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "enable_publishing": false,
+        "allow_symbol_change": true,
+        "container_id": "tradingview_chart"
+      }}
+      );
+      </script>
+    </div>
+    """
 
 def calculate_full_indicators(stock_data):
     """pandas-ta를 사용해 모든 기술적 지표를 계산합니다."""
