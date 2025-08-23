@@ -63,7 +63,7 @@ def calculate_full_indicators(stock_data):
     # 마지막 행(가장 최신 데이터)만 반환
     return df.iloc[-1]
 
-def render_info_section(stock, info, summary):
+def render_info_section(stock, info, summary, ticker_input):
     """정보 섹션 UI를 그립니다."""
     
     # --- 스타일 정의 ---
@@ -71,14 +71,15 @@ def render_info_section(stock, info, summary):
     <style>
     .info-container { font-size: 0.9em; }
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px; margin-bottom: 20px; }
-    .info-row { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 4px 0; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; padding: 4px 0; }
     .info-label { color: #888; }
     .info-value { font-weight: 500; color: #DCDCDC; text-align: right; white-space: normal; }
     .st-emotion-cache-1r6slb0 { font-size: 1.1rem; } /* Subheader 크기 조절 */
+    .indicator-desc { font-size: 0.8em; color: #666; margin-left: 8px; }
     </style>
     """, unsafe_allow_html=True)
 
-    st.subheader(f"{info.get('longName', '')} ({info.get('symbol', '')})")
+    st.subheader(f"{info.get('longName', ticker_input)} ({info.get('symbol', '')})")
     
     # --- 가격 정보 (2x2 그리드) ---
     st.markdown(f"""
@@ -112,33 +113,58 @@ def render_info_section(stock, info, summary):
     hist_data = stock.history(period="1y") # 1년치 데이터로 지표 계산
     indicators = calculate_full_indicators(hist_data)
     
-    indicator_cols = st.columns(3)
+    st.write("**TradingView 요약**")
+    summary_text = summary.get('RECOMMENDATION', 'N/A')
+    st.markdown(f"**{summary_text}** (매수: {summary.get('BUY', 0)}, 중립: {summary.get('NEUTRAL', 0)}, 매도: {summary.get('SELL', 0)})")
+
+    st.markdown('<div class="info-container" style="margin-top: 20px;">', unsafe_allow_html=True)
     
-    with indicator_cols[0]:
-        st.write("**TradingView 요약**")
-        summary_text = summary.get('RECOMMENDATION', 'N/A')
-        st.markdown(f"**{summary_text}** (매수: {summary.get('BUY', 0)}, 중립: {summary.get('NEUTRAL', 0)}, 매도: {summary.get('SELL', 0)})")
-        st.write("**이동평균**")
-        st.text(f"단순(20): {indicators.get('SMA_20', 0):,.2f}")
-        st.text(f"지수(20): {indicators.get('EMA_20', 0):,.2f}")
+    # 각 지표를 설명과 함께 표시
+    st.markdown(f"""
+        <div class="info-row">
+            <span class="info-label">단순이동평균 (SMA 20)</span>
+            <span class="info-value">{indicators.get('SMA_20', 0):,.2f} <span class="indicator-desc"> (추세 확인)</span></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">지수이동평균 (EMA 20)</span>
+            <span class="info-value">{indicators.get('EMA_20', 0):,.2f} <span class="indicator-desc"> (최근 가격 가중)</span></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">RSI (14)</span>
+            <span class="info-value">{indicators.get('RSI_14', 0):,.2f} <span class="indicator-desc"> (과매수/과매도)</span></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">MACD Level</span>
+            <span class="info-value">{indicators.get('MACD_12_26_9', 0):,.2f} <span class="indicator-desc"> (추세 강도/방향)</span></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">볼린저 밴드 (20, 2)</span>
+            <span class="info-value">{indicators.get('BBL_20_2.0', 0):,.2f} ~ {indicators.get('BBU_20_2.0', 0):,.2f} <span class="indicator-desc"> (변동성)</span></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">ADX (14)</span>
+            <span class="info-value">{indicators.get('ADX_14', 0):,.2f} <span class="indicator-desc"> (추세 강도)</span></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">OBV (On-Balance Volume)</span>
+            <span class="info-value">{indicators.get('OBV', 0):,} <span class="indicator-desc"> (거래량 동력)</span></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Williams %R (14)</span>
+            <span class="info-value">{indicators.get('WILLR_14', 0):,.2f} <span class="indicator-desc"> (과매수/과매도)</span></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">모멘텀 (10)</span>
+            <span class="info-value">{indicators.get('MOM_10', 0):,.2f} <span class="indicator-desc"> (가격 변화 속도)</span></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">일목균형표 (전환/기준)</span>
+            <span class="info-value">{indicators.get('ITS_9', 0):,.2f} / {indicators.get('IKS_26', 0):,.2f} <span class="indicator-desc"> (추세/지지/저항)</span></span>
+        </div>
+    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    with indicator_cols[1]:
-        st.write("**오실레이터**")
-        st.text(f"RSI(14): {indicators.get('RSI_14', 0):,.2f}")
-        st.text(f"MACD Level: {indicators.get('MACD_12_26_9', 0):,.2f}")
-        st.text(f"Williams %R: {indicators.get('WILLR_14', 0):,.2f}")
-        st.text(f"Momentum: {indicators.get('MOM_10', 0):,.2f}")
-        
-    with indicator_cols[2]:
-        st.write("**추세 및 거래량**")
-        st.text(f"ADX(14): {indicators.get('ADX_14', 0):,.2f}")
-        st.text(f"OBV: {indicators.get('OBV', 0):,}")
-        st.text(f"변동성(BB): {indicators.get('BBL_20_2.0', 0):,.2f} ~ {indicators.get('BBU_20_2.0', 0):,.2f}")
     
-    st.write("**일목균형표**")
-    st.text(f"전환선: {indicators.get('ITS_9', 0):,.2f} | 기준선: {indicators.get('IKS_26', 0):,.2f}")
-
-
 # --- 메인 실행 로직 (테스트용) ---
 if __name__ == "__main__":
     render_stock_analysis_page()
