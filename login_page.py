@@ -29,7 +29,7 @@ def render_login_page(admin_password):
     # 라디오 버튼 추가
     mode = st.radio(
         "실행할 모드를 선택하세요:",
-        ('물어보기', '자동매매'),
+        ('주식추천', '물어보기', '자동매매'),
         horizontal=True,
     )
     

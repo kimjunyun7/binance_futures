@@ -8,6 +8,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from streamlit_autorefresh import st_autorefresh
 from login_page import render_login_page, initialize_password, set_password
+from stock_analysis_page import render_stock_analysis_page
 
 # --- 1. 설정 및 초기화 ---
 load_dotenv()
@@ -507,3 +508,7 @@ else:
     # --- '물어보기' 페이지 렌더링 ---
     elif selected_mode == '물어보기':
         render_ask_ai_page()
+    
+    elif selected_mode == '주식 추천':
+        # --- '주식 추천' 페이지 렌더링 ---
+        render_stock_analysis_page()
